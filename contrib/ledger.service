@@ -1,0 +1,23 @@
+# Example systemd unit. Create a dedicated user first:
+#   sudo useradd --system --home /srv/ledger --shell /usr/sbin/nologin ledger
+#   sudo install -d -o ledger -g ledger /srv/ledger
+#   sudo install -o ledger -g ledger register.html retirement.html ledger-server.py /srv/ledger/
+[Unit]
+Description=Ledger
+After=network-online.target
+
+[Service]
+Type=simple
+User=ledger
+Group=ledger
+ExecStart=/usr/bin/python3 /srv/ledger/ledger-server.py --dir /srv/ledger --port 8787
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/ledger
+
+[Install]
+WantedBy=multi-user.target

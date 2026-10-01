@@ -1,0 +1,1573 @@
+<head>
+<meta charset="utf-8">
+<title>Ledger</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%232f7d32'/%3E%3Ctext x='16' y='23' font-family='Arial,Helvetica,sans-serif' font-size='19' font-weight='700' fill='%23ffffff' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+</head>
+<div id="root"></div>
+<style>
+html,body{height:100%;margin:0}
+#root{
+  --fs:14px;
+  --bar:#55585c; --barhi:#6a6e73; --barborder:#3f4245; --line:#d4d9de;
+  --row:#ffffff; --alt:#eaf1f8; --text:#1a1a1a; --dim:#6b7280; --sel:#cfe2f3;
+  --neg:#c0392b; --hover:#dceaf7; --foot:#eef1f4; --drawer:#f6f8fa;
+  --input:#ffffff; --inputline:#9aa1a8; --cal:#ffffff; --calline:#9aa1a8;
+  --celledit:#fffbe6; --celllineedit:#d9c98a; --setup:#fffbe6; --setupline:#e2d49a;
+  --setuptext:#5c5228; --warn:#8e2a22; --pastrow:#8a9099; --nowline:#b0b6bd;
+  --crit:#d35400; --low:#b8860b; --watch:#8a7300; --dup:#8e44ad;
+  --btn2:#e8ecef; --btn2text:#33373b; --btn2line:#b3bac1;
+  font-family:"Segoe UI",Tahoma,Verdana,-apple-system,Helvetica,Arial,sans-serif;
+  font-size:var(--fs); color:var(--text); background:var(--row);
+  border:1px solid var(--line); overflow:hidden;
+  height:100%; display:flex; flex-direction:column;
+}
+#root.dark{
+  --bar:#1b2028; --barhi:#2a323c; --barborder:#10141a; --line:#2a323c;
+  --row:#12151a; --alt:#181c22; --text:#e4e7ec; --dim:#8b94a1; --sel:#24405c;
+  --neg:#ff6b5d; --hover:#1c2b3d; --foot:#161a20; --drawer:#14171c;
+  --input:#1b2028; --inputline:#3a4149; --cal:#1b2028; --calline:#3a4149;
+  --celledit:#2a2410; --celllineedit:#6b5a1e; --setup:#241f0c; --setupline:#4a3f1a;
+  --setuptext:#e0c98a; --warn:#5c1c17; --pastrow:#5f6773; --nowline:#4a5158;
+  --crit:#ff9142; --low:#ffc247; --watch:#e0c34a; --dup:#c792ea;
+  --btn2:#232830; --btn2text:#dfe3e8; --btn2line:#3a4149;
+}
+#root *{box-sizing:border-box;margin:0;padding:0}
+.tabbal{font-weight:600;margin-left:.35em}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;
+  background:var(--bar);border-bottom:1px solid var(--barborder);flex:0 0 auto}
+#root button{font:inherit;font-size:calc(var(--fs) - 1px);color:#f2f4f6;background:var(--barhi);
+  border:1px solid #7e8288;border-radius:3px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+#root button:hover{background:#7b8086}
+#root button:disabled{opacity:.4;cursor:default}
+#root button:disabled:hover{background:var(--barhi)}
+#root a.navlink{color:#f2f4f6;text-decoration:none;font-size:calc(var(--fs) - 1px);
+  padding:4px 10px;border-radius:3px;border:1px solid #7e8288}
+#root a.navlink:hover{background:var(--barhi)}
+#root button.on{background:#f2f4f6;color:#26282a;border-color:#f2f4f6;font-weight:600}
+#root button:focus-visible,#root input:focus-visible,#root select:focus-visible{
+  outline:2px solid #3d7fd6;outline-offset:1px}
+.spacer{flex:1}
+.pfilt{display:flex;align-items:center;gap:4px}
+#root .pfilt input{width:10em}
+#root .pfilt input.active{border-color:#3d7fd6;box-shadow:0 0 0 1px #3d7fd6}
+#root .filtbar{padding:4px 10px;background:var(--bar);color:#e4e7ea;font-size:calc(var(--fs) - 2px);
+  border-bottom:1px solid var(--barborder)}
+.ctl{display:flex;align-items:center;gap:6px;color:#e4e7ea;font-size:calc(var(--fs) - 2px)}
+.ctl input[type=range]{width:96px;accent-color:#f2f4f6}
+#root input,#root select{font:inherit;font-size:calc(var(--fs) - 1px);color:var(--text);
+  background:var(--input);border:1px solid var(--inputline);border-radius:3px;padding:3px 6px}
+
+.wrap{flex:1 1 auto;min-height:0;overflow:auto;background:var(--row)}
+table{border-collapse:collapse;width:100%;color:var(--text)}
+th{position:sticky;top:0;z-index:2;background:var(--bar);color:#fff;font-weight:600;
+  font-size:calc(var(--fs) - 1px);text-align:left;padding:6px 8px;white-space:nowrap;
+  border-right:1px solid var(--barhi)}
+th.r{text-align:right}
+td{padding:0 8px;height:2.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-bottom:1px solid var(--line)}
+td.r{text-align:right}
+tr.alt td{background:var(--alt)}
+tr:hover td{background:var(--hover)}
+tr.sel td{background:var(--sel)}
+tr.past td{color:var(--pastrow)}
+tr.nowline td{border-top:2px solid var(--nowline)}
+td.bal{font-weight:600}
+.neg{color:var(--neg);font-weight:800}
+.crit{color:var(--crit);font-weight:800}
+.low{color:var(--low);font-weight:700}
+.watch{color:var(--watch)}
+.dup{color:var(--dup);font-weight:700}
+.dim{color:var(--dim)}
+.cell{display:block;min-height:1.4em;cursor:text;overflow:hidden;text-overflow:ellipsis}
+.cell:hover{background:var(--celledit);box-shadow:inset 0 0 0 1px var(--celllineedit)}
+td input,td select{width:100%;padding:1px 3px}
+.datewrap{display:flex;align-items:center}
+.cal{position:fixed;z-index:50;background:var(--cal);border:1px solid var(--calline);border-radius:4px;
+  box-shadow:0 6px 22px rgba(0,0,0,.35);padding:7px;width:max-content}
+.calhead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px}
+.calhead .mo{font-weight:600;font-size:calc(var(--fs) - 1px);min-width:9.5em;text-align:center}
+#root .cal button{background:var(--btn2);color:var(--btn2text);border-color:var(--btn2line);padding:2px 8px}
+#root .cal button:hover{background:var(--hover)}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cdow{text-align:center;color:var(--dim);font-size:calc(var(--fs) - 4px);font-weight:600;
+  padding:2px 0}
+#root .cal button.cday{width:2.3em;height:2.1em;padding:0;background:var(--input);border-color:var(--line);
+  font-size:calc(var(--fs) - 1px);color:var(--text)}
+#root .cal button.cday:hover{background:var(--hover);border-color:#8fb6dd}
+#root .cal button.cday.off{color:var(--pastrow)}
+#root .cal button.cday.now{border-color:#2f7d32;font-weight:700}
+#root .cal button.cday.on{background:#3d7fd6;border-color:#3d7fd6;color:#fff;font-weight:700}
+.calfoot{display:flex;gap:5px;justify-content:space-between;margin-top:6px}
+.chk{width:1.05em;height:1.05em;cursor:pointer;accent-color:#2f7d32}
+.xbtn{background:transparent;border:none;color:var(--inputline);padding:0 4px;font-size:calc(var(--fs)+1px)}
+.xbtn:hover{background:transparent;color:var(--neg)}
+
+.warnbar{background:var(--warn);color:#fff;padding:7px 12px;font-size:calc(var(--fs) - 1px);
+  line-height:1.45;flex:0 0 auto}
+.warnbar b{color:#ffe9a8}
+.reconbar{background:var(--drawer);color:var(--dim);padding:6px 12px;font-size:calc(var(--fs) - 2px);
+  border-bottom:1px solid var(--line);flex:0 0 auto;display:flex;align-items:center;gap:10px}
+.reconbar .mini{padding:2px 8px;font-size:calc(var(--fs) - 3px)}
+.empty{padding:34px 22px;text-align:center;color:var(--dim);line-height:1.7}
+.empty b{color:var(--text)}
+
+.foot{display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+  padding:8px 14px;background:var(--foot);border-top:1px solid var(--line);
+  font-size:calc(var(--fs) - 1px);position:relative;z-index:5;flex:0 0 auto}
+#root .foot button{background:var(--btn2);color:var(--btn2text);border-color:var(--btn2line)}
+#root .foot button:hover{background:var(--hover)}
+#root .foot button.on{background:var(--bar);color:#fff;border-color:var(--bar)}
+.foot .grow{flex:1}
+.saveto{color:var(--dim);font-size:calc(var(--fs) - 3px)}
+.foot .k{color:var(--dim);display:block;font-size:calc(var(--fs) - 3px)}
+.foot .v{font-weight:600}
+.foot .eq{color:var(--dim);font-size:calc(var(--fs)+2px)}
+
+.drawer{background:var(--drawer);border-top:1px solid var(--line);flex:0 0 auto;
+  max-height:0;overflow:hidden;transition:max-height .24s ease}
+.drawer.open{overflow:auto}
+@media(prefers-reduced-motion:reduce){.drawer{transition:none}}
+.panel{padding:10px 12px}
+.panel h3{font-size:var(--fs);margin-bottom:3px}
+.panel .hint{color:var(--dim);font-size:calc(var(--fs) - 2px);margin-bottom:9px;line-height:1.55}
+.rhead,.rrow{display:grid;
+  grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.25fr) minmax(78px,.75fr)
+    minmax(65px,.6fr) minmax(230px,1.9fr) minmax(65px,.65fr) minmax(128px,.95fr) auto 26px;
+  gap:5px;align-items:center}
+.rhead{color:var(--dim);font-size:calc(var(--fs) - 3px);font-weight:600;
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.rrow{margin-bottom:4px}
+.rrow input,.rrow select{min-width:0;width:100%}
+.acctcell{display:flex;flex-direction:column;gap:2px;min-width:0}
+.freq{display:flex;gap:4px;min-width:0}
+.ractions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.rrow button.go{background:#2f7d32;color:#fff;border-color:#2f7d32;
+  font-size:calc(var(--fs) - 3px);padding:3px 8px;white-space:nowrap}
+.rrow button.go:hover{background:#37913b}
+.acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;
+  padding-top:9px;border-top:1px solid var(--line)}
+.acts button{background:var(--btn2);color:var(--btn2text);border-color:var(--btn2line)}
+.acts button:hover{background:var(--hover)}
+.acts button.go{background:#2f7d32;color:#fff;border-color:#2f7d32;font-weight:600}
+.acts button.go:hover{background:#37913b}
+.acts button.danger{color:var(--warn)}
+.acts label{color:var(--dim);font-size:calc(var(--fs) - 2px);display:flex;align-items:center;gap:5px}
+.genmsg{color:var(--dim);font-size:calc(var(--fs) - 2px);font-style:italic}
+.genmsg:empty{display:none}
+.setup{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:8px 10px;margin-bottom:11px;
+  background:var(--setup);border:1px solid var(--setupline);border-radius:3px}
+.setup label{font-size:calc(var(--fs) - 2px);color:var(--setuptext);display:flex;align-items:center;gap:5px}
+
+.charthead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.charthead h3{font-size:var(--fs)}
+.chartbody{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+.chartbody svg{flex:0 0 auto}
+.chartlegend{flex:1 1 240px;min-width:220px}
+.lg-row{display:grid;grid-template-columns:14px 1fr auto 3.2em;gap:8px;align-items:center;
+  padding:3px 0;font-size:calc(var(--fs) - 1px)}
+.lg-sw{width:12px;height:12px;border-radius:2px}
+.lg-label{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-val{text-align:right;color:var(--text)}
+.lg-pct{text-align:right;color:var(--dim)}
+.lg-total{border-top:1px solid var(--line);margin-top:5px;padding-top:7px;font-weight:700}
+
+.reco{position:fixed;z-index:50;background:var(--cal);border:1px solid var(--calline);border-radius:4px;
+  box-shadow:0 6px 22px rgba(0,0,0,.35);padding:10px;width:240px}
+.reco .rhead2{font-weight:600;font-size:calc(var(--fs) - 1px);margin-bottom:6px;color:var(--text)}
+.reco label{display:block;font-size:calc(var(--fs) - 3px);color:var(--dim);margin:7px 0 2px;
+  text-transform:uppercase;letter-spacing:.04em}
+.reco input,.reco select{width:100%}
+.reco .rc-diff{margin:9px 0;font-size:calc(var(--fs) - 2px);color:var(--text);line-height:1.4}
+.reco .rc-diff.ok{color:#2f7d32}
+.reco .rc-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:2px}
+.reco .rc-btns button.go{background:#2f7d32;color:#fff;border-color:#2f7d32}
+
+@media(prefers-reduced-motion:reduce){#root *{transition:none!important}}
+</style>
+
+<script>
+(function(){
+const ROOT=document.getElementById('root');
+const $=s=>ROOT.querySelector(s);
+const KEY='ledger_v3';
+
+/* Storage picks itself: a ledger server if one answers, otherwise
+   this browser. Server mode is what makes the data a real file you can back up. */
+const API='./api/data', PING='./api/ping';
+const store={
+  ok:true, mode:'local',
+  async test(){
+    try{ if(location.protocol==='file:') throw 0;
+      const c=new AbortController(); const t=setTimeout(()=>c.abort(),2500);
+      const r=await fetch(PING,{signal:c.signal,cache:'no-store'}); clearTimeout(t);
+      if(r.ok){const j=await r.json(); if(j&&j.ledger){this.mode='server';this.ok=true;return true;}}
+    }catch(e){}
+    this.mode='local';
+    const probe=KEY+'_probe';
+    try{if(window.storage){await window.storage.set(probe,'1');
+      const r=await window.storage.get(probe); if(r&&r.value==='1'){this.ok=true;return true;}}}catch(e){}
+    try{localStorage.setItem(probe,'1');
+      const v=localStorage.getItem(probe); localStorage.removeItem(probe);
+      this.ok=(v==='1'); return this.ok;}catch(e){this.ok=false;return false;}
+  },
+  async get(){
+    if(this.mode==='server'){
+      try{const r=await fetch(API,{cache:'no-store'});
+        if(r.ok){const j=await r.json(); return (j&&j.accounts)?j:null;}}catch(e){this.ok=false;}
+      return null;
+    }
+    try{if(window.storage){const r=await window.storage.get(KEY);return r?JSON.parse(r.value):null;}}catch(e){}
+    try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null;}catch(e){return null;}
+  },
+  async set(o){
+    const s=JSON.stringify(o);
+    if(this.mode==='server'){
+      try{const r=await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json'},body:s});
+        this.ok=r.ok;}catch(e){this.ok=false;}
+      return;
+    }
+    try{if(window.storage){await window.storage.set(KEY,s);this.ok=true;return;}}catch(e){}
+    try{localStorage.setItem(KEY,s);this.ok=true;}catch(e){this.ok=false;}
+  }
+};
+
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d);};
+const fmtD=s=>{const d=parse(s);return `${pad(d.getMonth()+1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(2)}`;};
+const money=n=>(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+/* Lets you type "750-350" or "12*3.50" into an amount field. Restricted to
+   digits, + - * / ( ) . and whitespace before ever touching Function() -
+   that character set can't do anything but arithmetic, no way to inject
+   real code through it. */
+function safeMathEval(str){
+  const s=String(str).trim();
+  if(!s || !/^[0-9+\-*/(). \s]+$/.test(s)) return null;
+  try{
+    const val=Function('"use strict"; return ('+s+')')();
+    return (typeof val==='number' && isFinite(val)) ? val : null;
+  }catch(e){ return null; }
+}
+const plain=n=>n?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+/* Called fresh everywhere it's used, not cached at load - the ledger tab
+   can sit open across midnight, and a frozen "today" silently misdates
+   whatever assumes it (recon default, new-txn date, the calendar dot). */
+const TODAY=()=>iso(new Date());
+const yearOut=(()=>{const d=new Date();d.setFullYear(d.getFullYear()+1);return iso(d);})();
+const DOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let uid=Date.now(), seq=0;
+const nid=()=>'x'+(++uid).toString(36);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const CATS=['Income','Transfer','Monthly Bills: Rent/Mortgage','Monthly Bills: Electricity',
+ 'Monthly Bills: Natural Gas/Propane/Oil','Monthly Bills: Water','Monthly Bills: Internet',
+ 'Monthly Bills: Cable TV','Monthly Bills: Phone','Monthly Bills: Car Payment',
+ 'Everyday Expenses: Groceries','Everyday Expenses: Fuel','Everyday Expenses: Spending Money',
+ 'Everyday Expenses: Video Games/PlayStation',
+ 'Rainy Day Funds: Car Insurance','Rainy Day Funds: Car Repairs','Rainy Day Funds: Medical',
+ 'Savings Goals','Uncategorized'];
+
+/* Payee -> category guesses, applied live while typing a payee (only when the
+   row's category is still the untouched default, so it never overwrites a
+   category you picked on purpose). Add more [regex, category] pairs here as
+   patterns come up. */
+const PAYEE_CAT_RULES=[
+  [/walmart/i,'Everyday Expenses: Groceries'],
+];
+const autoCatFor=payee=>{
+  const hit=PAYEE_CAT_RULES.find(([re])=>re.test(payee));
+  return hit?hit[1]:null;
+};
+
+const blankRule=()=>({id:nid(),payee:'',cat:'Uncategorized',acct:'a1',toAcct:'',amt:0,dir:'out',
+  freq:'monthly',day:1,wd:4,anchor:TODAY(),start:TODAY()});
+/* A rule is a linked transfer (both sides generated together, always
+   category Transfer) only when toAcct is a real, different, still-existing
+   account. That guard - not r.cat==='Transfer' - is what decides it, so
+   pre-existing single-sided rules that already used the Transfer category
+   (e.g. a credit card payment entered on one account only) keep working exactly as before;
+   they have no toAcct and are untouched by any of this. */
+const isXferRule=r=>!!(r&&r.toAcct&&r.toAcct!==r.acct&&S.accounts.some(a=>a.id===r.toAcct));
+
+const fresh=()=>({
+  accounts:[{id:'a1',name:'Checking 1',opening:0,reconciledThrough:null},
+            {id:'a2',name:'Checking 2',opening:0,reconciledThrough:null}],
+  rules:[blankRule()], txns:[], horizon:yearOut, fs:14, filter:'a1', showRules:false, dark:false,
+  showReconciled:false, showChart:false, chartMode:'cat', chartMonth:null,
+  skips:{}   // ruleId -> [cycle,...] rows you deleted on purpose; Generate must never recreate these
+});
+let S=fresh(), selId=null;
+
+/* One-step undo. Every mutating action snapshots S first; Undo swaps the
+   live state with that snapshot, so pressing it again redoes. A fresh
+   snapshot on the next edit clears the redo side, same as any normal
+   undo. Deliberately single-level — simple to reason about, matches
+   "just back up my last step." */
+let undoSnap=null;
+function beforeChange(){ undoSnap=JSON.stringify(S); }
+function undo(){
+  if(!undoSnap) return;
+  const cur=JSON.stringify(S);
+  S=JSON.parse(undoSnap);
+  undoSnap=cur;
+  seq=S.txns.reduce((m,x)=>Math.max(m,x.ord||0),0)+1;
+  selId=null; calFor=null; calView=null; recoOpen=false; manualRecoOpen=false; xferOpen=false; acctOpen=false;
+  save(); render();
+}
+
+/* ---- recurrence ---- */
+function dates(r){
+  const floor=parse(TODAY());
+  const wanted=r.start?parse(r.start):floor;
+  const start=wanted>floor?wanted:floor;   // never generate before today, regardless
+  const end=parse(S.horizon), out=[];
+  if(end<start) return out;
+  if(r.freq==='weekdays'){
+    const d=new Date(start);
+    while(d<=end){ const w=d.getDay(); if(w>=1&&w<=5) out.push(iso(d)); d.setDate(d.getDate()+1); }
+  }else if(r.freq==='weekly'||r.freq==='biweekly'){
+    let d;
+    if(r.freq==='biweekly'&&r.anchor){
+      d=parse(r.anchor);
+      while(d>start) d.setDate(d.getDate()-14);
+      while(d<start) d.setDate(d.getDate()+14);
+    }else{
+      d=new Date(start);
+      while(d.getDay()!==Number(r.wd)) d.setDate(d.getDate()+1);
+    }
+    const step=r.freq==='weekly'?7:14;
+    while(d<=end){ out.push(iso(d)); d.setDate(d.getDate()+step); }
+  }else{
+    let y=start.getFullYear(), m=start.getMonth();
+    while(true){
+      const last=new Date(y,m+1,0).getDate();
+      const day=r.freq==='lastday'?last:Math.min(Number(r.day)||1,last);
+      const dd=new Date(y,m,day);
+      if(dd>end) break;
+      if(dd>=start) out.push(iso(dd));
+      m++; if(m===12){m=0;y++;}
+    }
+  }
+  return out;
+}
+/* One generated row for a rule/cycle/account. Transfer rules always post as
+   category Transfer regardless of whatever r.cat happens to hold; ordinary
+   rules use r.cat/r.dir as always. xferId (only set for transfer rows) is
+   the pairing key used to delete both sides together and to keep amount
+   edits balanced - see the [data-del] handler and edit()'s outflow/inflow
+   branch below. */
+function makeRow(r,d,acct,outflow,inflow,xferId){
+  const row={id:nid(),ruleId:r.id,cycle:d,ord:seq++,date:d,acct,payee:r.payee,
+    cat:isXferRule(r)?'Transfer':r.cat,memo:r.memo||'',outflow,inflow,cleared:false};
+  if(xferId) row.xferId=xferId;
+  return row;
+}
+function rowsForCycle(r,d){
+  if(isXferRule(r)){
+    const xf=nid();
+    return [makeRow(r,d,r.acct,+r.amt,0,xf), makeRow(r,d,r.toAcct,0,+r.amt,xf)];
+  }
+  return [makeRow(r,d,r.acct, r.dir==='out'?+r.amt:0, r.dir==='in'?+r.amt:0)];
+}
+/* cycle -> Set(account ids already represented) among the rows a regen pass
+   is keeping for this one rule. A plain rule only ever needs r.acct covered;
+   a transfer rule needs both r.acct and r.toAcct covered independently, so
+   editing (and thus preserving) just one leg's amount doesn't make Generate
+   think the whole cycle is done and leave the other leg missing forever. */
+function coveredAccts(rid,rows){
+  const m={};
+  rows.filter(t=>t.ruleId===rid).forEach(t=>{
+    const cyc=t.cycle||t.date;
+    (m[cyc]=m[cyc]||new Set()).add(t.acct);
+  });
+  return m;
+}
+/* Generates whatever rows are still missing for one rule, given the rows
+   already being kept for it. Shared by regen/regenOne/addNext so the
+   "which side, if any, still needs making" logic only lives in one place. */
+function missingRowsForRule(r,keepForRule,onlyFirst){
+  if(!r.payee&&!r.amt) return [];
+  const skip=new Set(S.skips[r.id]||[]);
+  const covered=coveredAccts(r.id,keepForRule);
+  const accts=isXferRule(r)?[r.acct,r.toAcct]:[r.acct];
+  const made=[];
+  for(const d of dates(r)){
+    if(skip.has(d)) continue;
+    const have=covered[d]||new Set();
+    const missing=accts.filter(a=>!have.has(a));
+    if(!missing.length) continue;
+    if(missing.length===accts.length){
+      made.push(...rowsForCycle(r,d));
+    }else{
+      // exactly one leg of a transfer survived (e.g. its amount was hand-
+      // edited); recreate only the missing leg, not a fresh pair.
+      const a=missing[0];
+      made.push(makeRow(r,d,a, a===r.acct?+r.amt:0, a===r.toAcct?+r.amt:0, nid()));
+    }
+    if(onlyFirst) break;
+  }
+  return made;
+}
+/* Rebuild generated rows. Rows you edited by hand are kept, and their date is
+   not regenerated, so a corrected amount survives every future Generate. */
+function regen(){
+  const keep=S.txns.filter(t=>!t.ruleId||t.edited);
+  const made=[];
+  for(const r of S.rules) made.push(...missingRowsForRule(r,keep,false));
+  const keptRuleRows=keep.filter(t=>t.ruleId).length;
+  S.txns=keep.concat(made);
+  save();
+  return {added:made.length, kept:keptRuleRows};
+}
+/* Generates future rows for exactly one rule. Every row belonging to any
+   OTHER rule - edited or not - is filtered into "keep" untouched, never
+   even re-examined. This is the scoped, low-risk version: adding one
+   forgotten bill and generating just it can't disturb months of
+   carefully-nudged dates elsewhere. */
+function regenOne(rid){
+  const r=S.rules.find(x=>x.id===rid);
+  if(!r) return {added:0, kept:0};
+  const keep=S.txns.filter(t=>t.ruleId!==rid || t.edited);
+  const keepForRule=keep.filter(t=>t.ruleId===rid);
+  const made=missingRowsForRule(r,keepForRule,false);
+  const keptRuleRows=keepForRule.length;
+  S.txns=keep.concat(made);
+  save();
+  return {added:made.length, kept:keptRuleRows};
+}
+/* Adds exactly the single next not-yet-created occurrence of one rule -
+   the YNAB-style "Add next, click again for the one after that" flow.
+   Sits alongside Generate/Generate this rather than replacing either;
+   uses the same held-cycles logic as regenOne so it can never
+   double-add a date that's already on the ledger or was deliberately
+   deleted (S.skips). Never touches any row but the one it creates
+   (both sides of it, for a transfer rule). */
+function addNext(rid){
+  const r=S.rules.find(x=>x.id===rid);
+  if(!r||(!r.payee&&!r.amt)) return {added:0,date:null};
+  const keepForRule=S.txns.filter(t=>t.ruleId===rid);
+  const made=missingRowsForRule(r,keepForRule,true);
+  if(!made.length) return {added:0,date:null};
+  S.txns.push(...made);
+  save();
+  return {added:made.length,date:made[0].date};
+}
+function computed(){
+  /* Same date: income posts before outflow, every time, so a same-day
+     paycheck-then-autopay pair never shows a false low point. */
+  const list=[...S.txns].sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    const ai=(+a.inflow||0)>0, bi=(+b.inflow||0)>0;
+    if(ai!==bi) return ai?-1:1;
+    return a.ord-b.ord;
+  });
+  const bal={}; S.accounts.forEach(a=>bal[a.id]=+a.opening||0);
+  return list.map(t=>{
+    bal[t.acct]=(bal[t.acct]||0)+(+t.inflow||0)-(+t.outflow||0);
+    return {...t,balance:bal[t.acct]};
+  });
+}
+const acctNm=id=>(S.accounts.find(a=>a.id===id)||{}).name||'?';
+/* Running-balance color tiers: negative first, then three escalating
+   thresholds, so a tight stretch is visible while scrolling without any
+   text callouts. */
+function balClass(bal){
+  if(bal<0) return 'neg';
+  if(bal<100) return 'crit';
+  if(bal<500) return 'low';
+  if(bal<1000) return 'watch';
+  return '';
+}
+
+/* Flags rows that look like accidental duplicates, not just "same payee
+   twice this month" — that would light up on every weekly paycheck and
+   grocery run. Two checks instead:
+   1) Two occurrences of the SAME recurring rule landing closer together
+      than half that rule's own normal spacing (the exact shape of the
+      old drag-then-Generate ghost-duplicate bug, whatever the rule's
+      frequency is).
+   2) Two rows, same account/payee/exact amount, within a few days of
+      each other, regardless of rule — plain accidental double-entry. */
+function computeDupSet(rows){
+  const dup=new Set();
+  const EXPECT={weekly:7,biweekly:14,monthly:27,lastday:27,weekdays:1};
+  const byRule={};
+  rows.forEach(r=>{ if(r.ruleId) (byRule[r.ruleId]=byRule[r.ruleId]||[]).push(r); });
+  Object.entries(byRule).forEach(([rid,list])=>{
+    const rule=S.rules.find(x=>x.id===rid);
+    const base=rule?(EXPECT[rule.freq]||14):6;
+    const thresh=Math.max(2,base/2);
+    list.sort((a,b)=>a.date<b.date?-1:1);
+    for(let i=1;i<list.length;i++){
+      const gap=(parse(list[i].date)-parse(list[i-1].date))/864e5;
+      if(gap<thresh){ dup.add(list[i].id); dup.add(list[i-1].id); }
+    }
+  });
+  const byKey={};
+  rows.forEach(r=>{
+    if(!r.payee) return;
+    const amt=(+r.inflow||0)-(+r.outflow||0);
+    if(!amt) return;
+    const k=r.acct+'|'+r.payee.trim().toLowerCase()+'|'+amt;
+    (byKey[k]=byKey[k]||[]).push(r);
+  });
+  Object.values(byKey).forEach(list=>{
+    if(list.length<2) return;
+    list.sort((a,b)=>a.date<b.date?-1:1);
+    for(let i=1;i<list.length;i++){
+      const gap=(parse(list[i].date)-parse(list[i-1].date))/864e5;
+      if(gap<3){ dup.add(list[i].id); dup.add(list[i-1].id); }
+    }
+  });
+  return dup;
+}
+
+/* Savings-type accounts listed in TAB_BAL (by account id) show their checked-box
+   balance right on the tab, so the current amount is visible without
+   switching to it. Cleared rows only - future generated deposits don't count. */
+const TAB_BAL=new Set([]); // e.g. new Set(['a3']) - ids are a1, a2, ... in creation order
+function clearedBalOf(a){
+  return (+a.opening||0)+S.txns.filter(t=>t.acct===a.id&&t.cleared)
+    .reduce((s,t)=>s+(+t.inflow||0)-(+t.outflow||0),0);
+}
+
+/* ---- render ---- */
+function render(){
+  const prevWrap=$('.wrap');
+  const prevScroll=prevWrap?prevWrap.scrollTop:0;
+  const pqEl=$('#payeeQ'), pqFocus=pqEl&&document.activeElement===pqEl,
+        pqSel=pqFocus?[pqEl.selectionStart,pqEl.selectionEnd]:null;
+  const all=computed(), both=S.filter==='all';
+  const rows=both?all:all.filter(r=>r.acct===S.filter);
+  const opening=both?S.accounts.reduce((s,a)=>s+(+a.opening||0),0)
+                   :(+((S.accounts.find(a=>a.id===S.filter)||{}).opening)||0);
+  const cleared=opening+rows.filter(r=>r.cleared).reduce((s,r)=>s+(+r.inflow||0)-(+r.outflow||0),0);
+  const working=opening+rows.reduce((s,r)=>s+(+r.inflow||0)-(+r.outflow||0),0);
+  const dupSet=computeDupSet(all.filter(r=>both||r.acct===S.filter));
+  const curAcct=both?null:S.accounts.find(a=>a.id===S.filter);
+  const lockDate=curAcct?curAcct.reconciledThrough:null;
+  const hiddenCount=lockDate&&!S.showReconciled ? rows.filter(r=>r.date<=lockDate&&r.cleared).length : 0;
+  const lockRows=lockDate&&!S.showReconciled ? rows.filter(r=>!(r.date<=lockDate&&r.cleared)) : rows;
+  const pq=payeeQ.trim().toLowerCase();
+  const visRows=pq?lockRows.filter(r=>(r.payee||'').toLowerCase().includes(pq)):lockRows;
+  const fOut=visRows.reduce((s,r)=>s+(+r.outflow||0),0), fIn=visRows.reduce((s,r)=>s+(+r.inflow||0),0);
+  ROOT.style.setProperty('--fs',S.fs+'px');
+  ROOT.classList.toggle('dark',!!S.dark);
+
+  ROOT.innerHTML=`
+  ${store.ok?'':`<div class="warnbar">Not saving right now. Changes will be lost on reload. Hit <b>Export</b> to keep a copy.</div>`}
+  <div class="bar">
+    ${S.accounts.map(a=>`<button class="${S.filter===a.id?'on':''}" data-f="${a.id}">${esc(a.name)}${TAB_BAL.has(a.id)?` <span class="tabbal num">${money(clearedBalOf(a))}</span>`:''}</button>`).join('')}
+    <button class="${both?'on':''}" data-f="all">${S.accounts.length>2?'All':'Both'}</button>
+    <button id="acctBtn" class="mini" title="Start tracking another account (savings, 401k, a new card...)">+ Account</button>
+    <button id="add">+ Add a transaction</button>
+    <button id="reco">Sync with bank</button>
+    <button id="recoManual" class="mini" title="Type in today's bank balance instead of syncing &mdash; a quick weekly catch-up for small transactions you don't want to enter one by one">Reconcile manually</button>
+    <button id="xferBtn" class="mini" title="Move money between two of your own tracked accounts &mdash; both sides are created together, tagged Transfer">Record transfer</button>
+    <button id="undoBtn"${undoSnap?'':' disabled'} title="Undo your last change">&#8617; Undo</button>
+    <a class="navlink" href="retirement.html" title="Retirement projection">Retirement &rarr;</a>
+    <span class="pfilt"><input id="payeeQ" type="text" placeholder="Filter payee&hellip;" autocomplete="off"
+      class="${pq?'active':''}" value="${esc(payeeQ)}" title="Show only rows whose payee contains this text (Esc clears)">
+      ${pq?'<button id="payeeQx" class="mini" title="Clear filter">&times;</button>':''}</span>
+    <div class="spacer"></div>
+    <span class="ctl">Text <input type="range" id="fs" min="11" max="26" value="${S.fs}">
+      <span class="num">${S.fs}</span></span>
+    <button id="darkbtn" title="Toggle dark mode">${S.dark?'&#9728;&#65039; Light':'&#127769; Dark'}</button>
+    <button id="exp">Export</button><button id="imp">Import</button>
+  </div>
+
+  ${lockDate?`<div class="reconbar">${S.showReconciled
+      ?`Showing full history &mdash; reconciled through ${fmtD(lockDate)}.`
+      :`${hiddenCount} transaction${hiddenCount===1?'':'s'} reconciled through ${fmtD(lockDate)}, tucked out of the way.`}
+    <button id="toggleReconciled" class="mini">${S.showReconciled?'Hide again':'Show reconciled'}</button>
+    <button id="clearLock" class="mini" title="Wrong date? Undo the lock entirely.">Clear lock</button></div>`:''}
+
+  ${pq?`<div class="filtbar">Payee filter &ldquo;${esc(payeeQ.trim())}&rdquo;: ${visRows.length} row${visRows.length===1?'':'s'}
+    &middot; out ${money(fOut)} &middot; in ${money(fIn)}${hiddenCount?` &middot; reconciled rows still tucked away`:''}
+    &middot; balances shown are the whole account's</div>`:''}
+
+  <datalist id="payeeDL">${[...new Set(S.txns.map(t=>t.payee).filter(Boolean))].sort()
+    .map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
+
+  <div class="wrap"><table><thead><tr>
+    <th style="width:12.5em">Date</th>
+    ${both?'<th style="width:9em">Account</th>':''}
+    <th>Payee</th><th>Category</th><th>Memo</th>
+    <th class="r" style="width:8em">Outflow</th>
+    <th class="r" style="width:8em">Inflow</th>
+    <th class="r" style="width:10em">Balance</th>
+    <th style="width:3em;text-align:center" title="Cleared">C</th><th style="width:2em"></th>
+  </tr></thead><tbody id="tb">
+  ${visRows.length?visRows.map((r,i)=>row(r,i,visRows,both,dupSet)).join('')
+   :pq?`<tr><td colspan="10"><div class="empty">No payees match &ldquo;${esc(payeeQ.trim())}&rdquo;.</div></td></tr>`
+   :(rows.length && hiddenCount
+     ?`<tr><td colspan="10"><div class="empty">
+        Everything on this account is reconciled and tucked away.<br>
+        Hit <b>Show reconciled</b> above to see it, or add something new below.
+       </div></td></tr>`
+     :`<tr><td colspan="10"><div class="empty">
+      Empty ledger.<br>
+      Hit <b>Recurring</b> at the bottom left to set your starting balance and enter
+      your bills and paychecks, then <b>Generate</b>.<br>
+      One-offs like a repair or a trip go in with <b>+ Add a transaction</b>.
+     </div></td></tr>`)}
+  </tbody></table></div>
+
+  <div id="drawer" class="drawer">${S.showChart?chartPanel():panel()}</div>
+
+  <div class="foot">
+    <button id="rules" class="${S.showRules?'on':''}">Recurring</button>
+    <button id="chartBtn" class="${S.showChart?'on':''}">Chart</button>
+    <span class="saveto">${store.mode==='server'?'Saving to server':'Saving in this browser'}</span>
+    <span class="grow"></span>
+    <span><span class="k">Cleared Balance</span>
+      <span class="v num ${cleared<0?'neg':''}">${money(cleared)}</span></span>
+    <span class="eq">+</span>
+    <span><span class="k">Uncleared Transactions</span>
+      <span class="v num ${(working-cleared)<0?'neg':''}">${money(working-cleared)}</span></span>
+    <span class="eq">=</span>
+    <span><span class="k">Working Balance</span>
+      <span class="v num ${working<0?'neg':''}">${money(working)}</span></span>
+  </div>`;
+  wireTable();
+  wireDrawer();
+  if(pqFocus){ const q=$('#payeeQ'); q.focus(); try{q.setSelectionRange(pqSel[0],pqSel[1]);}catch(e){} }
+  const newWrap=$('.wrap');
+  if(newWrap) newWrap.scrollTop=prevScroll;
+  lastProgWrapScroll=newWrap?newWrap.scrollTop:null;
+  const dr=$('#drawer');
+  const drawerWants=S.showRules||S.showChart;
+  if(dr){
+    const full=()=>Math.min(dr.scrollHeight,Math.round(window.innerHeight*0.42))+'px';
+    if(drawerAnim){
+      drawerAnim=false;
+      if(drawerWants){
+        dr.classList.add('open'); dr.style.maxHeight='0px'; void dr.offsetHeight;
+        requestAnimationFrame(()=>{dr.style.maxHeight=full();});
+      }else{
+        dr.style.maxHeight=full(); dr.classList.remove('open'); void dr.offsetHeight;
+        requestAnimationFrame(()=>{dr.style.maxHeight='0px';});
+      }
+    }else{
+      dr.classList.toggle('open',drawerWants);
+      dr.style.maxHeight=drawerWants?full():'0px';
+    }
+  }
+  if(calFor) drawCal();
+  if(recoOpen) drawReco();
+  if(manualRecoOpen) drawManualReco();
+  if(xferOpen) drawXfer();
+  if(acctOpen) drawAcct();
+}
+
+function row(r,i,rows,both,dupSet){
+  const past=r.date<TODAY(), now=!past&&(i===0||rows[i-1].date<TODAY());
+  const isDup=dupSet&&dupSet.has(r.id);
+  return `<tr class="${i%2?'alt':''} ${past?'past':''} ${now?'nowline':''} ${r.id===selId?'sel':''}" data-id="${r.id}">
+    <td><span class="datewrap"><span class="cell num" data-e="date">${fmtD(r.date)}</span></span></td>
+    ${both?`<td class="dim"><span class="cell" data-e="acct">${esc(acctNm(r.acct))}</span></td>`:''}
+    <td><span class="cell ${isDup?'dup':''}" data-e="payee" title="${isDup?'Looks like a possible duplicate - check it':''}">${esc(r.payee)}</span></td>
+    <td><span class="cell" data-e="cat">${esc(r.cat)}</span></td>
+    <td class="dim"><span class="cell" data-e="memo">${esc(r.memo||'')}</span></td>
+    <td class="r num"><span class="cell" data-e="outflow">${plain(r.outflow)}</span></td>
+    <td class="r num"><span class="cell" data-e="inflow">${plain(r.inflow)}</span></td>
+    <td class="r num bal ${balClass(r.balance)}">${money(r.balance)}</td>
+    <td style="text-align:center"><input type="checkbox" class="chk" data-clr ${r.cleared?'checked':''}></td>
+    <td><button class="xbtn" data-del title="Delete">&times;</button></td>
+  </tr>`;
+}
+
+/* ---- spending chart ---- */
+const CHART_COLORS=['#4fa3d9','#e07b53','#5fb87a','#c78bd6','#d9b23f','#e0607a',
+  '#54b3ab','#9d8bd0','#c99a4a','#6f9fe0'];
+
+function chartMonths(){
+  const acct=S.filter;
+  const scope=acct==='all'?S.txns:S.txns.filter(t=>t.acct===acct);
+  const set=new Set(scope.filter(t=>t.outflow>0).map(t=>t.date.slice(0,7)));
+  return [...set].sort();
+}
+function chartData(month,mode){
+  const acct=S.filter;
+  const scope=(acct==='all'?S.txns:S.txns.filter(t=>t.acct===acct))
+    .filter(t=>t.outflow>0 && t.date.slice(0,7)===month);
+  const sums={};
+  scope.forEach(t=>{
+    const key=mode==='payee'?(t.payee||'(no payee)').trim():(t.cat||'Uncategorized');
+    sums[key]=(sums[key]||0)+(+t.outflow||0);
+  });
+  let entries=Object.entries(sums).sort((a,b)=>b[1]-a[1]);
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  if(entries.length>8){
+    const top=entries.slice(0,8);
+    const rest=entries.slice(8).reduce((s,[,v])=>s+v,0);
+    entries=rest>0?[...top,['Other',rest]]:top;
+  }
+  return {entries,total};
+}
+function pieSVG(entries,total){
+  if(!total) return `<div style="padding:20px;color:var(--dim);font-size:calc(var(--fs) - 1px)">
+    No spending in this month yet.</div>`;
+  const cx=90,cy=90,r=80;
+  let angle=-90, paths='';
+  entries.forEach(([label,val],i)=>{
+    const frac=val/total, sweep=frac*360;
+    const x1=cx+r*Math.cos(angle*Math.PI/180), y1=cy+r*Math.sin(angle*Math.PI/180);
+    const end=angle+sweep;
+    const x2=cx+r*Math.cos(end*Math.PI/180), y2=cy+r*Math.sin(end*Math.PI/180);
+    const large=sweep>180?1:0;
+    const color=CHART_COLORS[i%CHART_COLORS.length];
+    if(entries.length===1){
+      paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+    } else {
+      paths+=`<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}" stroke="var(--drawer)" stroke-width="1.5"/>`;
+    }
+    angle=end;
+  });
+  return `<svg viewBox="0 0 180 180" width="180" height="180">${paths}</svg>`;
+}
+function chartPanel(){
+  const months=chartMonths();
+  const month=months.includes(S.chartMonth)?S.chartMonth:(months.includes(TODAY().slice(0,7))?TODAY().slice(0,7):(months[0]||TODAY().slice(0,7)));
+  S.chartMonth=month;
+  const {entries,total}=chartData(month,S.chartMode);
+  const [y,m]=month.split('-');
+  const monthLabel=`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]} ${y}`;
+  return `<div class="panel">
+  <div class="charthead">
+    <h3 style="margin:0">Spending breakdown</h3>
+    <span class="freq">
+      <button data-cmode="cat" class="mini ${S.chartMode==='cat'?'on':''}">By Category</button>
+      <button data-cmode="payee" class="mini ${S.chartMode==='payee'?'on':''}">By Payee</button>
+    </span>
+    <select id="chartMonthSel">${months.length?months.map(mo=>{
+      const [yy,mm]=mo.split('-');
+      const lbl=`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1]} ${yy}`;
+      return `<option value="${mo}"${mo===month?' selected':''}>${lbl}</option>`;
+    }).join(''):`<option value="${month}">${monthLabel}</option>`}</select>
+  </div>
+  <div class="chartbody">
+    ${pieSVG(entries,total)}
+    <div class="chartlegend">
+      ${entries.length?entries.map(([label,val],i)=>`
+        <div class="lg-row">
+          <span class="lg-sw" style="background:${CHART_COLORS[i%CHART_COLORS.length]}"></span>
+          <span class="lg-label">${esc(label)}</span>
+          <span class="lg-val num">${money(val)}</span>
+          <span class="lg-pct num">${total?Math.round(val/total*100):0}%</span>
+        </div>`).join(''):''}
+      ${total?`<div class="lg-row lg-total"><span class="lg-sw" style="background:transparent"></span>
+        <span class="lg-label">Total spent</span><span class="lg-val num">${money(total)}</span><span></span></div>`:''}
+    </div>
+  </div></div>`;
+}
+function wireChartPanel(){
+  ROOT.querySelectorAll('[data-cmode]').forEach(b=>b.onclick=()=>{
+    S.chartMode=b.dataset.cmode; save(); deferPanel();
+  });
+  const sel=$('#chartMonthSel');
+  if(sel) sel.onchange=()=>{ S.chartMonth=sel.value; save(); deferPanel(); };
+}
+
+function panel(){
+  const fr=r=>`<span class="freq">
+      <select data-rf="freq">
+        <option value="monthly"${r.freq==='monthly'?' selected':''}>Monthly on day</option>
+        <option value="lastday"${r.freq==='lastday'?' selected':''}>End of month</option>
+        <option value="weekly"${r.freq==='weekly'?' selected':''}>Weekly on</option>
+        <option value="biweekly"${r.freq==='biweekly'?' selected':''}>Every 2 weeks on</option>
+        <option value="weekdays"${r.freq==='weekdays'?' selected':''}>Every weekday</option>
+      </select>
+      ${r.freq==='monthly'?`<input data-rf="day" class="num" style="width:4em" value="${r.day||1}">`:''}
+      ${(r.freq==='weekly'||r.freq==='biweekly')
+        ?`<select data-rf="wd">${DOW.map((d,i)=>
+            `<option value="${i}"${Number(r.wd)===i?' selected':''}>${d}</option>`).join('')}</select>`:''}
+      ${r.freq==='biweekly'
+        ?`<input type="date" data-rf="anchor" value="${r.anchor||TODAY()}" title="A payday that really happened">`:''}
+    </span>`;
+  return `<div class="panel">
+  <div class="setup">
+    ${S.accounts.map(a=>`
+      <label>Account <input data-an="${a.id}" value="${esc(a.name)}" style="width:10em"></label>
+      <label>starts at <input class="num" data-ao="${a.id}" value="${a.opening}" style="width:7em"></label>`).join('')}
+    <label>Fill through <input type="date" id="hz" value="${S.horizon}"></label>
+  </div>
+  <h3>Recurring</h3>
+  <div class="hint">Each row here becomes repeating transactions when you hit Generate.
+  Generate rebuilds them from scratch &mdash; except any row you've edited in the ledger, which is left
+  exactly as you changed it. So correcting a variable amount sticks.
+  Don't want the whole schedule filled in at once? <b>Add next</b> adds just one occurrence
+  &mdash; click it again whenever you're ready for the next one.
+  For <b>Every 2 weeks</b>, put in a payday that actually happened and it counts forward from there.
+  <b>Starts</b> is the first date Generate is allowed to create &mdash; push it forward past a bill
+  you already paid this cycle and Generate won't add it back.
+  Pick a <b>To account</b> to make a row a transfer between two of your own accounts &mdash; both
+  sides get created together every cycle, always tagged Transfer.</div>
+  <div class="rhead"><div>Payee</div><div>Category</div><div>Account / To</div><div>Amount</div>
+    <div>How often</div><div>In / Out</div><div>Starts</div><div></div><div></div></div>
+  ${S.rules.map(r=>{const xfer=isXferRule(r);return `<div class="rrow" data-rid="${r.id}">
+    <input data-rf="payee" value="${esc(r.payee)}" placeholder="who / what">
+    <select data-rf="cat"${xfer?' disabled title="Transfers are always category Transfer"':''}>${CATS.map(c=>`<option${c===r.cat?' selected':''}>${esc(c)}</option>`).join('')}</select>
+    <div class="acctcell">
+      <select data-rf="acct">${S.accounts.map(a=>
+        `<option value="${a.id}"${a.id===r.acct?' selected':''}>${esc(a.name)}</option>`).join('')}</select>
+      <select data-rf="toAcct" title="Pick a To account to make this a transfer between two of your own accounts">
+        <option value="">Not a transfer</option>
+        ${S.accounts.filter(a=>a.id!==r.acct).map(a=>
+          `<option value="${a.id}"${a.id===r.toAcct?' selected':''}>&rarr; ${esc(a.name)}</option>`).join('')}
+      </select>
+    </div>
+    <input data-rf="amt" class="num" value="${r.amt||''}" placeholder="0.00">
+    ${fr(r)}
+    <select data-rf="dir"${xfer?' disabled title="A transfer always runs Account → To account"':''}>
+      <option value="out"${r.dir==='out'?' selected':''}>Out</option>
+      <option value="in"${r.dir==='in'?' selected':''}>In</option></select>
+    <input type="date" data-rf="start" value="${r.start||TODAY()}" title="First date Generate will create">
+    <div class="ractions">
+      <button class="mini go" data-radd title="Add just the next occurrence of this bill - click again to add the one after that">Add next</button>
+      <button class="mini go" data-rgen title="Generate just this bill - nothing else on the ledger is touched">Generate this</button>
+    </div>
+    <button class="xbtn" data-rdel title="Remove">&times;</button>
+  </div>`;}).join('')}
+  <div class="acts">
+    <button id="radd">+ Add a recurring item</button>
+    <button id="go" class="go">Generate</button>
+    <span id="genMsg" class="genmsg">${genMsg}</span>
+    <div class="spacer"></div>
+    <button id="wipe" class="danger">Erase everything</button>
+  </div></div>`;
+}
+
+/* ---- editing ---- */
+function edit(td,id,f){
+  const t=S.txns.find(x=>x.id===id); if(!t) return;
+  let el;
+  if(f==='date'){el=document.createElement('input');el.type='date';el.value=t.date;}
+  else if(f==='cat'||f==='acct'){
+    el=document.createElement('select');
+    (f==='cat'?CATS.map(c=>[c,c]):S.accounts.map(a=>[a.id,a.name])).forEach(([v,l])=>{
+      const o=document.createElement('option');o.value=v;o.textContent=l;
+      if(t[f]===v)o.selected=true;el.appendChild(o);});
+  }else{el=document.createElement('input');el.type='text';el.value=t[f]||'';}
+  if(f==='payee'){
+    el.setAttribute('list','payeeDL');
+    el.addEventListener('input',()=>{
+      const guess=autoCatFor(el.value);
+      if(guess && t.cat==='Uncategorized'){
+        t.cat=guess;
+        const catCell=td.closest('tr').querySelector('.cell[data-e="cat"]');
+        if(catCell) catCell.textContent=guess;
+      }
+    });
+  }
+  td.innerHTML='';td.appendChild(el);el.focus();if(el.select)el.select();
+  let pendingTab=0;
+  const done=()=>{
+    let v=el.value;
+    if(f==='outflow'||f==='inflow'){
+      const raw=String(v).trim();
+      /* Only treat it as a formula if there's an operator that isn't just a
+         leading minus sign - so a plain "-50" still behaves exactly like a
+         plain negative number, not a broken expression. */
+      const looksLikeFormula=/[+*/]/.test(raw) || /-/.test(raw.slice(1));
+      const evaluated=looksLikeFormula?safeMathEval(raw):null;
+      v=evaluated!==null ? Math.abs(evaluated) : (parseFloat(raw.replace(/[^0-9.\-]/g,''))||0);
+      if(v)t[f==='outflow'?'inflow':'outflow']=0;
+    }
+    if(String(t[f])!==String(v)) t.edited=true;
+    beforeChange(); t[f]=v; selId=id;
+    /* A transfer's two legs must always net to zero. Correcting the amount
+       on either one mirrors it onto the other (and marks that one edited
+       too), rather than leaving the pair unbalanced or having Generate
+       recreate the other leg later at the rule's stale template amount. */
+    if((f==='outflow'||f==='inflow')&&t.xferId){
+      const sib=S.txns.find(x=>x.xferId===t.xferId&&x.id!==t.id);
+      if(sib){ const other=f==='outflow'?'inflow':'outflow'; sib[other]=v; sib[f]=0; sib.edited=true; }
+    }
+    save(); render(); if(f==='date') jump(id);
+    if(pendingTab) requestAnimationFrame(()=>tabTo(id,f,pendingTab));
+  };
+  el.addEventListener('blur',done,{once:true});
+  el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();el.blur();}
+    else if(e.key==='Escape'){e.preventDefault();el.removeEventListener('blur',done);render();}
+    else if(e.key==='Tab'){e.preventDefault();pendingTab=e.shiftKey?-1:1;el.blur();}
+  });
+}
+/* Tab/Shift-Tab from an editing cell moves to the next (or previous)
+   editable cell in the row, then wraps into the next/previous row - so Tab
+   walks the register like a spreadsheet instead of falling out to whatever
+   the browser's default focus order happens to be (checkboxes, buttons). */
+function tabTo(id,f,dir){
+  const tr=ROOT.querySelector(`tr[data-id="${id}"]`); if(!tr) return;
+  const cells=[...tr.querySelectorAll('.cell')];
+  const i=cells.findIndex(c=>c.dataset.e===f);
+  const ni=i+dir;
+  if(ni>=0 && ni<cells.length){
+    const c=cells[ni];
+    if(c.dataset.e==='date') edit(c.closest('td'),id,'date'); else edit(c.closest('td'),id,c.dataset.e);
+    return;
+  }
+  const rowsEls=[...ROOT.querySelectorAll('#tb tr[data-id]')];
+  const ri=rowsEls.findIndex(r=>r.dataset.id===id);
+  const nri=ri+dir;
+  if(nri<0||nri>=rowsEls.length) return;
+  const ntr=rowsEls[nri];
+  const ncells=[...ntr.querySelectorAll('.cell')];
+  const nc=dir>0?ncells[0]:ncells[ncells.length-1];
+  if(nc) edit(nc.closest('td'),ntr.dataset.id,nc.dataset.e);
+}
+const jump=id=>requestAnimationFrame(()=>{
+  const tr=ROOT.querySelector(`tr[data-id="${id}"]`);
+  if(tr)tr.scrollIntoView({block:'center',behavior:'smooth'});});
+
+/* ---- floating date picker ---- */
+const MONTHS=['January','February','March','April','May','June','July','August',
+  'September','October','November','December'];
+let calFor=null, calView=null, drawerAnim=false, recoOpen=false, manualRecoOpen=false, xferOpen=false, acctOpen=false, genMsg='';
+/* Restoring scroll position after a re-render fires a native 'scroll' event
+   just like a real user scroll would. The dismiss-on-scroll listener needs
+   to tell those apart, or every re-render closes whatever it just opened -
+   track the exact value we last set programmatically and ignore an event
+   that reports that same value back. */
+let lastProgWrapScroll=null, lastProgDrawerScroll=null;
+/* Payee filter text. Session-only on purpose - not saved in S, so a reload
+   never opens the register quietly filtered down to a few rows. */
+let payeeQ='';
+
+function openCal(id){
+  const t=S.txns.find(x=>x.id===id); if(!t) return;
+  calFor=id; calView=t.date.slice(0,7); selId=id; render();
+}
+const closeCal=()=>{ if(calFor){ calFor=null; calView=null; render(); } };
+
+function drawCal(){
+  const anchor=ROOT.querySelector(`tr[data-id="${calFor}"] .cell[data-e="date"]`);
+  const t=S.txns.find(x=>x.id===calFor);
+  if(!anchor||!t){ calFor=null; return; }
+  const [vy,vm]=calView.split('-').map(Number);
+  const first=new Date(vy,vm-1,1), lead=first.getDay();
+  const days=new Date(vy,vm,0).getDate(), prevDays=new Date(vy,vm-1,0).getDate();
+  const cells=[];
+  for(let i=lead-1;i>=0;i--){
+    const d=new Date(vy,vm-2,prevDays-i); cells.push({d:iso(d),n:prevDays-i,off:true});}
+  for(let i=1;i<=days;i++) cells.push({d:iso(new Date(vy,vm-1,i)),n:i,off:false});
+  while(cells.length%7) {const i=cells.length-lead-days+1;
+    cells.push({d:iso(new Date(vy,vm,i)),n:i,off:true});}
+
+  const el=document.createElement('div');
+  el.className='cal';
+  el.innerHTML=`
+    <div class="calhead">
+      <button data-cm="-1" title="Previous month">&lsaquo;</button>
+      <span class="mo">${MONTHS[vm-1]} ${vy}</span>
+      <button data-cm="1" title="Next month">&rsaquo;</button>
+    </div>
+    <div class="calgrid">
+      ${['S','M','T','W','T','F','S'].map(d=>`<span class="cdow">${d}</span>`).join('')}
+      ${cells.map(c=>`<button class="cday ${c.off?'off':''} ${c.d===TODAY()?'now':''}
+        ${c.d===t.date?'on':''}" data-d="${c.d}" tabindex="${c.d===t.date?'0':'-1'}">${c.n}</button>`).join('')}
+    </div>
+    <div class="calfoot">
+      <button data-d="${TODAY()}">Today</button>
+      <button data-cx="1">Close</button>
+    </div>`;
+  ROOT.appendChild(el);
+
+  const r=anchor.getBoundingClientRect(), box=el.getBoundingClientRect();
+  let top=r.bottom+4, left=r.left;
+  if(top+box.height>window.innerHeight-6) top=Math.max(6,r.top-box.height-4);
+  if(left+box.width>window.innerWidth-6) left=Math.max(6,window.innerWidth-box.width-6);
+  el.style.top=top+'px'; el.style.left=left+'px';
+
+  el.addEventListener('click',e=>e.stopPropagation());
+  el.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{
+    let m=vm-1+Number(b.dataset.cm), y=vy;
+    if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+    calView=`${y}-${pad(m+1)}`; render();
+  });
+  el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{
+    const t2=S.txns.find(x=>x.id===calFor);
+    if(t2 && t2.date!==b.dataset.d){ beforeChange(); t2.date=b.dataset.d; t2.edited=true; }
+    const id=calFor; calFor=null; calView=null; save(); render(); jump(id);
+  });
+  el.querySelector('[data-cx]').onclick=closeCal;
+  const day=el.querySelector('.cday.on')||el.querySelector('.cday');
+  if(day) day.focus();
+}
+
+/* ---- bank sync (replaces the old type-in-the-balance reconcile) ----
+   "Reconcile" now means: pull real transactions from SimpleFIN, clear
+   whatever already matches a ledger row, drop in whatever the bank has
+   that the ledger doesn't (already cleared, tagged with sfTxnId so a
+   re-sync never duplicates it), and leave anything that still doesn't
+   line up sitting visible and uncleared instead of papering over it with
+   a lump adjustment. Never touches a row dated after today - those are
+   Generate's future projections, not real postings, and SimpleFIN only
+   ever returns things that actually happened. */
+function openReco(){ manualRecoOpen=false; xferOpen=false; acctOpen=false; recoOpen=true; render(); }
+function closeReco(){ if(recoOpen){ recoOpen=false; render(); } }
+
+function positionPanel(el,btn){
+  const r=btn.getBoundingClientRect(), box=el.getBoundingClientRect();
+  let top=r.bottom+4, left=r.left;
+  if(top+box.height>window.innerHeight-6) top=Math.max(6,r.top-box.height-4);
+  if(left+box.width>window.innerWidth-6) left=Math.max(6,window.innerWidth-box.width-6);
+  el.style.top=top+'px'; el.style.left=left+'px';
+}
+
+async function drawReco(){
+  const btn=$('#reco'); if(!btn){ recoOpen=false; return; }
+  const startAcct=S.filter==='all'?S.accounts[0].id:S.filter;
+  const acct=S.accounts.find(a=>a.id===startAcct);
+
+  const el=document.createElement('div');
+  el.className='reco';
+  el.innerHTML=`<div class="rhead2">Sync with bank</div><div class="rc-diff">Talking to the bank&hellip;</div>`;
+  ROOT.appendChild(el);
+  positionPanel(el,btn);
+  el.addEventListener('click',e=>e.stopPropagation());
+
+  let data;
+  try{
+    const since=acct.reconciledThrough?Math.floor(parse(acct.reconciledThrough).getTime()/1000):0;
+    const resp=await fetch(`/api/bank-sync?since=${since}`);
+    data=await resp.json();
+    if(!resp.ok) throw new Error(data.error||'sync failed');
+  }catch(err){
+    if(!recoOpen) return;
+    el.innerHTML=`<div class="rhead2">Sync with bank</div>
+      <div class="rc-diff">Couldn't reach the bank: ${esc(err.message)}</div>
+      <div class="rc-btns"><button id="rc-cancel">Close</button></div>`;
+    positionPanel(el,btn);
+    el.querySelector('#rc-cancel').onclick=closeReco;
+    return;
+  }
+  if(!recoOpen) return;   // closed while the fetch was in flight
+
+  if(!acct.sfAcctId){
+    el.innerHTML=`
+      <div class="rhead2">Which bank account is "${esc(acct.name)}"?</div>
+      <label>Bank account
+        <select id="sf-pick">${data.accounts.map(a=>
+          `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')}</select>
+      </label>
+      <div class="rc-btns">
+        <button id="rc-cancel">Cancel</button>
+        <button id="rc-go" class="go">Link &amp; sync</button>
+      </div>`;
+    positionPanel(el,btn);
+    el.querySelector('#rc-cancel').onclick=closeReco;
+    el.querySelector('#rc-go').onclick=()=>{
+      beforeChange();
+      acct.sfAcctId=el.querySelector('#sf-pick').value;
+      save();
+      runSync(acct,data,el,btn);
+    };
+    return;
+  }
+  runSync(acct,data,el,btn);
+}
+
+function runSync(acct,data,el,btn){
+  const bankAcct=data.accounts.find(a=>a.id===acct.sfAcctId);
+  if(!bankAcct){
+    el.innerHTML=`<div class="rhead2">Sync with bank</div>
+      <div class="rc-diff">That linked account didn't come back from the bank this time.</div>
+      <div class="rc-btns">
+        <button id="rc-relink" class="mini">Re-link</button>
+        <button id="rc-cancel">Close</button>
+      </div>`;
+    positionPanel(el,btn);
+    el.querySelector('#rc-cancel').onclick=closeReco;
+    el.querySelector('#rc-relink').onclick=()=>{ beforeChange(); acct.sfAcctId=null; save(); drawReco(); };
+    return;
+  }
+
+  beforeChange();
+  const today=TODAY();
+  const dateOf=posted=>iso(new Date(posted*1000));
+  const alreadySynced=new Set(S.txns.filter(t=>t.acct===acct.id&&t.sfTxnId).map(t=>t.sfTxnId));
+  const open=S.txns.filter(t=>t.acct===acct.id&&!t.cleared&&t.date<=today&&!t.sfTxnId);
+  const used=new Set();
+  let matched=0, added=0;
+
+  bankAcct.transactions.forEach(bt=>{
+    if(alreadySynced.has(bt.id)) return;
+    const amt=parseFloat(bt.amount)||0;
+    const inflow=amt>0?amt:0, outflow=amt<0?-amt:0;
+    const btDate=dateOf(bt.posted);
+
+    let best=null, bestGap=Infinity;
+    open.forEach(row=>{
+      if(used.has(row.id)) return;
+      const sameAmt=Math.abs((+row.inflow||0)-inflow)<0.005&&Math.abs((+row.outflow||0)-outflow)<0.005;
+      if(!sameAmt) return;
+      const gap=Math.abs((parse(row.date)-parse(btDate))/864e5);
+      if(gap<=3&&gap<bestGap){ best=row; bestGap=gap; }
+    });
+
+    if(best){
+      best.cleared=true; best.sfTxnId=bt.id; best.edited=true;
+      used.add(best.id); matched++;
+    }else{
+      S.txns.push({id:nid(),ord:seq++,date:btDate,acct:acct.id,
+        payee:bt.payee||'Unknown',cat:'Uncategorized',memo:bt.memo||'Synced from bank',
+        outflow,inflow,cleared:true,edited:true,sfTxnId:bt.id});
+      added++;
+    }
+  });
+
+  const bankBal=parseFloat(bankAcct.balance)||0;
+  const clearedBal=(+acct.opening||0)+S.txns.filter(t=>t.acct===acct.id&&t.cleared)
+    .reduce((s,t)=>s+(+t.inflow||0)-(+t.outflow||0),0);
+  const diff=Math.round((bankBal-clearedBal)*100)/100;
+  const stillOpen=S.txns.filter(t=>t.acct===acct.id&&!t.cleared&&t.date<=today).length;
+  if(stillOpen===0){
+    acct.reconciledThrough=bankAcct.balanceDate?dateOf(bankAcct.balanceDate):today;
+  }
+  /* render() redraws the whole ROOT, which would otherwise re-trigger
+     drawReco() (recoOpen is still true) and race a second "Talking to the
+     bank..." fetch against the summary panel we're about to show below -
+     the exact same "close before render" trick closeReco() already uses,
+     just borrowed for a beat instead of a real close. */
+  save();
+  recoOpen=false; render(); recoOpen=true;
+
+  const el2=document.createElement('div');
+  el2.className='reco';
+  el2.innerHTML=`<div class="rhead2">Synced</div>
+    <div class="rc-diff${Math.abs(diff)<0.005?' ok':''}">
+      ${matched} matched, ${added} new from the bank.<br>
+      ${Math.abs(diff)<0.005
+        ?'Matches the bank exactly.'
+        :`Still off by ${money(Math.abs(diff))} (${diff>0?'bank shows more':'ledger shows more'}) &mdash; check for a pending charge, a fee, or a duplicate.`}
+      ${stillOpen?`<br>${stillOpen} row${stillOpen===1?'':'s'} still unconfirmed, not tucked away &mdash; check the register.`:''}
+    </div>
+    <div class="rc-btns">
+      ${Math.abs(diff)>=0.005?`<button id="rc-adj" class="mini" title="One lump balance-adjustment line for the remainder, the old way">Add adjustment</button>`:''}
+      <button id="rc-cancel" class="go">Done</button>
+    </div>`;
+  ROOT.appendChild(el2);
+  positionPanel(el2,btn);
+  el2.addEventListener('click',e=>e.stopPropagation());
+  el2.querySelector('#rc-cancel').onclick=closeReco;
+  if(el2.querySelector('#rc-adj')) el2.querySelector('#rc-adj').onclick=()=>{
+    beforeChange();
+    S.txns.push({id:nid(),ord:seq++,date:today,acct:acct.id,payee:'Reconciliation',
+      cat:'Uncategorized',memo:'Balance adjustment',
+      outflow:diff<0?Math.abs(diff):0,inflow:diff>0?diff:0,cleared:true,edited:true});
+    acct.reconciledThrough=today;
+    save(); render(); closeReco();
+  };
+}
+
+/* ---- manual reconcile (fallback for the once-a-day bank sync) ----
+   For lots of small transactions you don't want to thumb into the
+   phone one at a time as they happen: sync stays the daily
+   default and this is the weekly catch-up: type in the bank's cleared
+   balance, one lump adjustment line covers the gap. Pre-dates the
+   SimpleFIN sync (this was the entire "Reconcile" flow before 2026-09-14)
+   - restored 2026-09-16 as an explicit second option, not a replacement
+   for sync. Own recoManual/manualRecoOpen state so it can't collide with
+   the sync panel's #reco/recoOpen if both somehow get triggered. */
+function openManualReco(){ recoOpen=false; xferOpen=false; acctOpen=false; manualRecoOpen=true; render(); }
+function closeManualReco(){ if(manualRecoOpen){ manualRecoOpen=false; render(); } }
+/* Record a one-off transfer between two of your own tracked accounts: pick
+   From/To/amount/date, and both linked legs (cat Transfer, shared xferId)
+   get created together in one action - no more manually adding one side and
+   forgetting or mis-tagging the other (see [data-del] and edit() for how
+   xferId is used to keep the pair deleted/balanced together afterward). Own
+   xferOpen state, same reasoning as manualRecoOpen above. */
+function openXfer(){ recoOpen=false; manualRecoOpen=false; acctOpen=false; xferOpen=true; render(); }
+function closeXfer(){ if(xferOpen){ xferOpen=false; render(); } }
+
+function drawXfer(){
+  const btn=$('#xferBtn'); if(!btn){ xferOpen=false; return; }
+  const startFrom=S.filter==='all'?S.accounts[0].id:S.filter;
+  const other=S.accounts.find(a=>a.id!==startFrom);
+  const startTo=other?other.id:startFrom;
+
+  const el=document.createElement('div');
+  el.className='reco';
+  el.innerHTML=`
+    <div class="rhead2">Record transfer</div>
+    <label>From
+      <select id="xf-from">${S.accounts.map(a=>
+        `<option value="${a.id}"${a.id===startFrom?' selected':''}>${esc(a.name)}</option>`).join('')}</select>
+    </label>
+    <label>To
+      <select id="xf-to">${S.accounts.map(a=>
+        `<option value="${a.id}"${a.id===startTo?' selected':''}>${esc(a.name)}</option>`).join('')}</select>
+    </label>
+    <label>Amount <input class="num" id="xf-amt" placeholder="0.00"></label>
+    <label>Date <input type="date" id="xf-date" value="${TODAY()}"></label>
+    <label>Payee / note <input id="xf-note" list="payeeDL" placeholder="e.g. Rent share"></label>
+    <div class="rc-diff" id="xf-warn"></div>
+    <div class="rc-btns">
+      <button id="xf-cancel">Cancel</button>
+      <button id="xf-go" class="go">Record</button>
+    </div>`;
+  ROOT.appendChild(el);
+  positionPanel(el,btn);
+  el.addEventListener('click',e=>e.stopPropagation());
+
+  const fromSel=el.querySelector('#xf-from'), toSel=el.querySelector('#xf-to'),
+        amtInp=el.querySelector('#xf-amt'), warnEl=el.querySelector('#xf-warn'),
+        goBtn=el.querySelector('#xf-go');
+  const refresh=()=>{
+    const same=fromSel.value===toSel.value;
+    warnEl.textContent=same?'From and To must be different accounts.':'';
+    warnEl.className='rc-diff'+(same?'':' ok');
+    goBtn.disabled=same;
+  };
+  fromSel.onchange=refresh; toSel.onchange=refresh; refresh();
+
+  el.querySelector('#xf-cancel').onclick=closeXfer;
+  goBtn.onclick=()=>{
+    const from=fromSel.value, to=toSel.value;
+    if(from===to) return;
+    const amt=Math.abs(parseFloat(amtInp.value)||0);
+    if(!amt){ amtInp.focus(); return; }
+    const date=el.querySelector('#xf-date').value||TODAY();
+    const payee=el.querySelector('#xf-note').value.trim();
+    beforeChange();
+    const xf=nid();
+    S.txns.push(
+      {id:nid(),ord:seq++,date,acct:from,payee,cat:'Transfer',memo:'',outflow:amt,inflow:0,cleared:false,xferId:xf},
+      {id:nid(),ord:seq++,date,acct:to,payee,cat:'Transfer',memo:'',outflow:0,inflow:amt,cleared:false,xferId:xf}
+    );
+    xferOpen=false; save(); render();
+  };
+  amtInp.focus();
+}
+
+/* Start tracking another account. Additive only - no rename/delete here.
+   New ids follow the existing a1/a2 scheme. Bank sync needs nothing extra:
+   the first "Sync with bank" on the new account asks which bank account it
+   is (see drawReco's sfAcctId picker). */
+function openAcct(){ recoOpen=false; manualRecoOpen=false; xferOpen=false; acctOpen=true; render(); }
+function closeAcct(){ if(acctOpen){ acctOpen=false; render(); } }
+function drawAcct(){
+  const btn=$('#acctBtn'); if(!btn){ acctOpen=false; return; }
+  const el=document.createElement('div');
+  el.className='reco';
+  el.innerHTML=`
+    <div class="rhead2">Add an account</div>
+    <label>Name <input id="ac-name" placeholder="e.g. Savings"></label>
+    <label>Starting balance <input class="num" id="ac-open" placeholder="0.00"></label>
+    <div class="rc-diff ok" id="ac-warn">Leave the starting balance at 0 for a brand-new account &mdash; record the first deposit as a transfer instead.</div>
+    <div class="rc-btns">
+      <button id="ac-cancel">Cancel</button>
+      <button id="ac-go" class="go">Add account</button>
+    </div>`;
+  ROOT.appendChild(el);
+  positionPanel(el,btn);
+  el.addEventListener('click',e=>e.stopPropagation());
+  const nameInp=el.querySelector('#ac-name'), warnEl=el.querySelector('#ac-warn');
+  el.querySelector('#ac-cancel').onclick=closeAcct;
+  const hint=warnEl.innerHTML;
+  nameInp.oninput=()=>{ warnEl.innerHTML=hint; warnEl.className='rc-diff ok'; };
+  const go=()=>{
+    const name=nameInp.value.trim();
+    if(!name){ nameInp.focus(); return; }
+    if(S.accounts.some(a=>a.name.trim().toLowerCase()===name.toLowerCase())){
+      warnEl.textContent='You already have an account called that.'; warnEl.className='rc-diff'; nameInp.focus(); return;
+    }
+    const opening=parseFloat(el.querySelector('#ac-open').value)||0;
+    const n=S.accounts.reduce((m,a)=>{const k=/^a(\d+)$/.exec(a.id); return k?Math.max(m,+k[1]):m;},0)+1;
+    beforeChange();
+    const id='a'+n;
+    S.accounts.push({id,name,opening,reconciledThrough:null});
+    S.filter=id;
+    acctOpen=false; save(); render();
+  };
+  el.querySelector('#ac-go').onclick=go;
+  el.querySelectorAll('input').forEach(i=>i.onkeydown=e=>{ if(e.key==='Enter') go(); });
+  nameInp.focus();
+}
+
+function drawManualReco(){
+  const btn=$('#recoManual'); if(!btn){ manualRecoOpen=false; return; }
+  const all=computed();
+  const acctFor=id=>{
+    const rows=all.filter(r=>r.acct===id);
+    const ob=+((S.accounts.find(a=>a.id===id)||{}).opening)||0;
+    return ob+rows.filter(r=>r.cleared).reduce((s,r)=>s+(+r.inflow||0)-(+r.outflow||0),0);
+  };
+  const startAcct=S.filter==='all'?S.accounts[0].id:S.filter;
+
+  const el=document.createElement('div');
+  el.className='reco';
+  el.innerHTML=`
+    <div class="rhead2">Reconcile manually</div>
+    <label>Account
+      <select id="mrc-acct">${S.accounts.map(a=>
+        `<option value="${a.id}"${a.id===startAcct?' selected':''}>${esc(a.name)}</option>`).join('')}</select>
+    </label>
+    <label>Reconciled through <input type="date" id="mrc-date" value="${TODAY()}"
+      title="Everything on or before this date gets tucked away. Leave as today unless you mean otherwise."></label>
+    <label>Bank's cleared balance
+      <input class="num" id="mrc-amt" value="${acctFor(startAcct).toFixed(2)}"></label>
+    <div class="rc-diff" id="mrc-diff"></div>
+    <div class="rc-btns">
+      <button id="mrc-cancel">Cancel</button>
+      <button id="mrc-go" class="go">Adjust</button>
+    </div>`;
+  ROOT.appendChild(el);
+  positionPanel(el,btn);
+  el.addEventListener('click',e=>e.stopPropagation());
+
+  const acctSel=el.querySelector('#mrc-acct'), amtInp=el.querySelector('#mrc-amt'),
+        diffEl=el.querySelector('#mrc-diff');
+  const refresh=()=>{
+    const entered=parseFloat(amtInp.value)||0;
+    const cur=acctFor(acctSel.value);
+    const diff=Math.round((entered-cur)*100)/100;
+    if(Math.abs(diff)<0.005){ diffEl.textContent='Already matches, no adjustment needed.'; diffEl.className='rc-diff ok'; }
+    else{
+      diffEl.textContent=(diff>0?'Adds an inflow of ':'Adds an outflow of ')+money(Math.abs(diff))+' to line up with the bank.';
+      diffEl.className='rc-diff';
+    }
+  };
+  acctSel.onchange=()=>{ amtInp.value=acctFor(acctSel.value).toFixed(2); refresh(); };
+  amtInp.oninput=refresh;
+  refresh();
+
+  el.querySelector('#mrc-cancel').onclick=closeManualReco;
+  el.querySelector('#mrc-go').onclick=()=>{
+    const id=acctSel.value;
+    const entered=parseFloat(amtInp.value)||0;
+    const diff=Math.round((entered-acctFor(id))*100)/100;
+    const rdate=el.querySelector('#mrc-date').value||TODAY();
+    beforeChange();
+    if(Math.abs(diff)>=0.005){
+      S.txns.push({id:nid(),ord:seq++,date:rdate,
+        acct:id,payee:'Reconciliation',cat:'Uncategorized',memo:'Balance adjustment',
+        outflow:diff<0?Math.abs(diff):0,inflow:diff>0?diff:0,cleared:true,edited:true});
+    }
+    S.txns.forEach(t=>{ if(t.acct===id && t.date<=rdate){ t.cleared=true; t.edited=true; } });
+    const acct=S.accounts.find(a=>a.id===id);
+    if(acct) acct.reconciledThrough=rdate;
+    manualRecoOpen=false; save(); render();
+  };
+  amtInp.focus(); amtInp.select();
+}
+
+/* Table/footer listeners only. Never touches the drawer, so editing a
+   recurring rule can't cause the (potentially long) register to flash. */
+function wireTable(){
+  ROOT.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;save();render();});
+  $('#fs').oninput=e=>{S.fs=+e.target.value;save();render();};
+  $('#payeeQ').oninput=e=>{payeeQ=e.target.value;render();};
+  $('#payeeQ').onkeydown=e=>{ if(e.key==='Escape'&&payeeQ){ e.stopPropagation(); payeeQ=''; render(); } };
+  if($('#payeeQx')) $('#payeeQx').onclick=()=>{payeeQ='';render();$('#payeeQ').focus();};
+  $('#add').onclick=()=>{
+    beforeChange();
+    const id=nid();
+    const acctId=S.filter==='all'?S.accounts[0].id:S.filter;
+    S.txns.push({id,ord:seq++,date:TODAY(),acct:acctId,
+      payee:'',cat:'Uncategorized',memo:'',outflow:0,inflow:0,cleared:false});
+    selId=id;save();render();jump(id);
+  };
+  $('#rules').onclick=()=>{S.showRules=!S.showRules; if(S.showRules) S.showChart=false; drawerAnim=true;save();render();};
+  $('#chartBtn').onclick=()=>{S.showChart=!S.showChart; if(S.showChart) S.showRules=false; drawerAnim=true;save();render();};
+  $('#exp').onclick=exp; $('#imp').onclick=imp;
+  $('#darkbtn').onclick=()=>{S.dark=!S.dark;save();render();};
+  $('#reco').onclick=e=>{e.stopPropagation(); recoOpen?closeReco():openReco();};
+  $('#recoManual').onclick=e=>{e.stopPropagation(); manualRecoOpen?closeManualReco():openManualReco();};
+  $('#xferBtn').onclick=e=>{e.stopPropagation(); xferOpen?closeXfer():openXfer();};
+  $('#acctBtn').onclick=e=>{e.stopPropagation(); acctOpen?closeAcct():openAcct();};
+  $('#undoBtn').onclick=undo;
+  if($('#toggleReconciled')) $('#toggleReconciled').onclick=()=>{
+    S.showReconciled=!S.showReconciled; save(); render();
+  };
+  if($('#clearLock')) $('#clearLock').onclick=()=>{
+    const acct=S.filter==='all'?null:S.accounts.find(a=>a.id===S.filter);
+    if(!acct) return;
+    beforeChange();
+    acct.reconciledThrough=null;
+    S.showReconciled=false;
+    save(); render();
+  };
+
+  ROOT.querySelectorAll('#tb .cell').forEach(c=>c.onclick=e=>{
+    e.stopPropagation();
+    const id=c.closest('tr').dataset.id;
+    if(c.dataset.e==='date') openCal(id);
+    else { if(calFor){calFor=null;calView=null;} edit(c.closest('td'),id,c.dataset.e); }
+  });
+  ROOT.querySelectorAll('#tb [data-clr]').forEach(c=>{
+    c.onclick=e=>e.stopPropagation();
+    c.onchange=()=>{
+      const t=S.txns.find(x=>x.id===c.closest('tr').dataset.id);
+      beforeChange(); t.cleared=c.checked;t.edited=true;save();render();};
+  });
+  ROOT.querySelectorAll('#tb [data-del]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();beforeChange();
+    const delId=b.closest('tr').dataset.id;
+    const delT=S.txns.find(x=>x.id===delId);
+    /* A transfer's two legs are one instance - deleting either one deletes
+       both, so you can never end up with an unbalanced half-transfer sitting
+       in one account with no trace in the other. */
+    const ids=[delId];
+    if(delT&&delT.xferId){
+      const sib=S.txns.find(x=>x.xferId===delT.xferId&&x.id!==delId);
+      if(sib) ids.push(sib.id);
+    }
+    /* Deleting a generated row is a deliberate "never make this one again" -
+       record its cycle so a future Generate can't resurrect it. Without this
+       the row just vanishes from the array with no memory it ever existed,
+       and the next Generate recreates it since it only skips cycles that
+       still have a surviving (kept) row. */
+    if(delT&&delT.ruleId){
+      const cyc=delT.cycle||delT.date;
+      const list=(S.skips[delT.ruleId]=S.skips[delT.ruleId]||[]);
+      if(!list.includes(cyc)) list.push(cyc);
+    }
+    S.txns=S.txns.filter(x=>!ids.includes(x.id));save();render();});
+  ROOT.querySelectorAll('#tb tr[data-id]').forEach(tr=>tr.onclick=()=>{selId=tr.dataset.id;render();});
+}
+
+/* Rule edits, chart controls: none of these change a single row in the
+   register, so they only ever repaint the drawer, never the (potentially
+   long) table underneath. Account name/opening/Generate/Erase touch real
+   balances, so those still go through the full render(). */
+function renderDrawer(){
+  const dr=$('#drawer'); if(!dr) return;
+  const scrollTop=dr.scrollTop;
+  dr.innerHTML=S.showChart?chartPanel():panel();
+  dr.scrollTop=scrollTop;
+  lastProgDrawerScroll=dr.scrollTop;
+  if(S.showRules||S.showChart)
+    dr.style.maxHeight=Math.min(dr.scrollHeight,Math.round(window.innerHeight*0.42))+'px';
+  wireDrawer();
+}
+/* A rule's onchange fires while the field is still mid-blur; replacing the
+   drawer's innerHTML synchronously in that handler can remove a node the
+   browser is still dispatching the event through (e.g. typing, then
+   immediately clicking "+ Add a recurring item"). Deferring one frame lets
+   the current event finish first. */
+let panelPending=false;
+function deferPanel(){
+  if(panelPending) return;
+  panelPending=true;
+  requestAnimationFrame(()=>{panelPending=false;renderDrawer();});
+}
+function wireDrawer(){
+  if(S.showChart) wireChartPanel(); else wirePanel();
+}
+function wirePanel(){
+  ROOT.querySelectorAll('[data-rid]').forEach(box=>{
+    const r=S.rules.find(x=>x.id===box.dataset.rid);
+    box.querySelectorAll('[data-rf]').forEach(f=>f.onchange=()=>{
+      const k=f.dataset.rf;
+      beforeChange();
+      r[k]=(k==='amt'||k==='day'||k==='wd')?(parseFloat(f.value)||0):f.value;
+      // picking a To account turns this into a transfer: lock the semantics
+      // (always Transfer, always out of Account into To account) so the
+      // stored rule can't disagree with what the disabled cat/dir controls show
+      if(k==='toAcct'&&r.toAcct){ r.cat='Transfer'; r.dir='out'; }
+      // changing From out from under a chosen To account would let them match
+      if(k==='acct'&&r.toAcct===r.acct) r.toAcct='';
+      save();
+      /* 'freq' changes which sub-fields are even shown (day input vs weekday
+         picker vs biweekly anchor); 'acct'/'toAcct' change whether this row
+         is a transfer, which locks/unlocks the cat and dir controls and
+         changes the To-account option list - all three need a rebuild.
+         Rebuilding on every field steals focus mid-Tab, since the input you
+         just tabbed out of gets destroyed before the browser finishes moving
+         focus to the next one, so everything else stays untouched here. */
+      if(k==='freq'||k==='acct'||k==='toAcct') deferPanel();
+    });
+    box.querySelector('[data-radd]').onclick=()=>{
+      beforeChange();
+      const res=addNext(r.id);
+      genMsg = res.added
+        ? `Added "${r.payee||'this bill'}" for ${fmtD(res.date)}. Click Add next again for the one after that.`
+        : `Nothing new for "${r.payee||'this bill'}" - already accounted for, or nothing left before the fill-through date.`;
+      render();
+    };
+    box.querySelector('[data-rgen]').onclick=()=>{
+      beforeChange();
+      const res=regenOne(r.id);
+      genMsg = res.added===0
+        ? `Nothing new for "${r.payee||'this bill'}" - already accounted for. Nothing else was touched.`
+        : `Added ${res.added} new row${res.added===1?'':'s'} for "${r.payee||'this bill'}" only. Nothing else on the ledger was touched.`;
+      render();
+    };
+    box.querySelector('[data-rdel]').onclick=()=>{
+      beforeChange(); S.rules=S.rules.filter(x=>x.id!==r.id);save();deferPanel();};
+  });
+  $('#radd').onclick=()=>{beforeChange(); S.rules.push(blankRule());save();deferPanel();};
+  $('#go').onclick=()=>{
+    beforeChange();
+    const r=regen();
+    genMsg = r.added===0
+      ? `Nothing new - all ${r.kept} of your rows were already accounted for.`
+      : `Added ${r.added} new row${r.added===1?'':'s'}. ${r.kept} of your existing rows (edited, moved, or cleared) were left exactly as you had them.`;
+    render();
+  };
+  $('#hz').onchange=e=>{beforeChange(); S.horizon=e.target.value;save();deferPanel();};
+  $('#wipe').onclick=()=>{
+    if(confirm('Erase every transaction, recurring item and balance, and start over? This cannot be undone.')){
+      beforeChange(); S=fresh();save();render();}
+  };
+  ROOT.querySelectorAll('[data-an]').forEach(i=>i.onchange=()=>{
+    beforeChange(); S.accounts.find(a=>a.id===i.dataset.an).name=i.value;save();render();});
+  ROOT.querySelectorAll('[data-ao]').forEach(i=>i.onchange=()=>{
+    beforeChange(); S.accounts.find(a=>a.id===i.dataset.ao).opening=parseFloat(i.value)||0;save();render();});
+}
+
+function dl(n,t,ty){const b=new Blob([t],{type:ty}),u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+function exp(){
+  const rows=computed();
+  const csv=['Date,Account,Payee,Category,Memo,Outflow,Inflow,Balance,Cleared']
+   .concat(rows.map(r=>[fmtD(r.date),acctNm(r.acct),r.payee,r.cat,r.memo,r.outflow||'',
+     r.inflow||'',r.balance.toFixed(2),r.cleared?'C':'']
+     .map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','))).join('\n');
+  dl('register.csv',csv,'text/csv');
+  dl('register-backup.json',JSON.stringify(S,null,2),'application/json');
+}
+function imp(){
+  const i=document.createElement('input');i.type='file';i.accept='.json';
+  i.onchange=()=>{const f=i.files[0];if(!f)return;const rd=new FileReader();
+    rd.onload=()=>{try{S=Object.assign(fresh(),JSON.parse(rd.result));
+      seq=S.txns.reduce((m,x)=>Math.max(m,x.ord||0),0)+1;save();render();}
+      catch(e){alert('That is not a register backup file.');}};
+    rd.readAsText(f);};
+  i.click();
+}
+let t; const save=()=>{clearTimeout(t);t=setTimeout(()=>store.set(S),250);};
+
+document.addEventListener('click',()=>{closeCal();closeReco();closeManualReco();closeXfer();closeAcct();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeCal();closeReco();closeManualReco();closeXfer();closeAcct();}
+  const inField=document.activeElement&&
+    ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName);
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!inField){ e.preventDefault(); undo(); }
+});
+ROOT.addEventListener('scroll',e=>{
+  const el=e.target;
+  if(el&&el.classList&&el.classList.contains('wrap')&&el.scrollTop===lastProgWrapScroll) return;
+  if(el&&el.id==='drawer'&&el.scrollTop===lastProgDrawerScroll) return;
+  closeCal();closeReco();closeManualReco();closeXfer();closeAcct();
+},true);
+
+(async()=>{
+  await store.test();
+  const v=await store.get();
+  if(v&&v.accounts){S=Object.assign(fresh(),v);seq=S.txns.reduce((m,x)=>Math.max(m,x.ord||0),0)+1;}
+  /* horizon isn't rolling on its own - it's a saved date, frozen at whenever
+     it was last set. Re-sync it forward to "today+1yr" on every load so it
+     never falls behind; a horizon manually pushed further out than that is
+     left alone. */
+  if(parse(S.horizon)<parse(yearOut)){ S.horizon=yearOut; save(); }
+  render();
+})();
+})();
+</script>

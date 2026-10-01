@@ -1,0 +1,8 @@
+ledger.json
+ledger-*.json
+snapshots/
+app-backups/
+simplefin-access-url
+*.bak
+__pycache__/
+*.pyc

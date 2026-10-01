@@ -1,0 +1,380 @@
+<head>
+<meta charset="utf-8">
+<title>Retirement</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%232f7d32'/%3E%3Ctext x='16' y='23' font-family='Arial,Helvetica,sans-serif' font-size='19' font-weight='700' fill='%23ffffff' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+</head>
+<div id="root"></div>
+<style>
+html,body{height:100%;margin:0}
+#root{
+  --fs:14px;
+  --bar:#55585c; --barhi:#6a6e73; --barborder:#3f4245; --line:#d4d9de;
+  --row:#ffffff; --alt:#eaf1f8; --text:#1a1a1a; --dim:#6b7280; --sel:#cfe2f3;
+  --neg:#c0392b; --hover:#dceaf7; --foot:#eef1f4; --drawer:#f6f8fa;
+  --input:#ffffff; --inputline:#9aa1a8; --setup:#fffbe6; --setupline:#e2d49a;
+  --setuptext:#5c5228; --btn2:#e8ecef; --btn2text:#33373b; --btn2line:#b3bac1;
+  --cons:#4fa3d9; --mod:#5fb87a; --aggr:#e0a53f;
+  font-family:"Segoe UI",Tahoma,Verdana,-apple-system,Helvetica,Arial,sans-serif;
+  font-size:var(--fs); color:var(--text); background:var(--row);
+  border:1px solid var(--line); overflow:hidden;
+  height:100%; display:flex; flex-direction:column;
+}
+#root.dark{
+  --bar:#1b2028; --barhi:#2a323c; --barborder:#10141a; --line:#2a323c;
+  --row:#12151a; --alt:#181c22; --text:#e4e7ec; --dim:#8b94a1; --sel:#24405c;
+  --hover:#1c2b3d; --foot:#161a20; --drawer:#14171c; --input:#1b2028; --inputline:#3a4149;
+  --setup:#241f0c; --setupline:#4a3f1a; --setuptext:#e0c98a;
+  --btn2:#232830; --btn2text:#dfe3e8; --btn2line:#3a4149;
+  --cons:#6ab6e8; --mod:#7cd39a; --aggr:#f0bd63;
+}
+#root *{box-sizing:border-box;margin:0;padding:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;
+  background:var(--bar);border-bottom:1px solid var(--barborder);flex:0 0 auto}
+#root button{font:inherit;font-size:calc(var(--fs) - 1px);color:#f2f4f6;background:var(--barhi);
+  border:1px solid #7e8288;border-radius:3px;padding:5px 11px;cursor:pointer;white-space:nowrap}
+#root button:hover{background:#7b8086}
+#root button.on{background:#f2f4f6;color:#26282a;border-color:#f2f4f6;font-weight:600}
+#root a.navlink{color:#f2f4f6;text-decoration:none;font-size:calc(var(--fs) - 1px);
+  padding:5px 11px;border-radius:3px;border:1px solid #7e8288}
+#root a.navlink:hover{background:var(--barhi)}
+.brand{color:#fff;font-weight:700;font-size:calc(var(--fs) + 2px);margin-right:6px}
+.spacer{flex:1}
+#root input,#root select{font:inherit;font-size:calc(var(--fs) - 1px);color:var(--text);
+  background:var(--input);border:1px solid var(--inputline);border-radius:3px;padding:4px 7px}
+
+.wrap{flex:1 1 auto;min-height:0;overflow:auto;padding:18px 22px}
+.hero{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
+.hero h1{font-size:calc(var(--fs) + 10px);font-weight:700}
+.hero .sub{color:var(--dim);font-size:calc(var(--fs) - 1px);margin-top:3px}
+.range{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}
+.range .item{min-width:150px}
+.range .k{font-size:calc(var(--fs) - 3px);color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.range .v{font-size:calc(var(--fs) + 9px);font-weight:700;font-variant-numeric:tabular-nums}
+.range .v.cons{color:var(--cons)} .range .v.mod{color:var(--mod)} .range .v.aggr{color:var(--aggr)}
+
+.card{background:var(--drawer);border:1px solid var(--line);border-radius:6px;
+  padding:14px 16px;margin-bottom:16px}
+.card h2{font-size:calc(var(--fs) + 2px);margin-bottom:10px}
+.card .hint{color:var(--dim);font-size:calc(var(--fs) - 2px);margin-bottom:10px;line-height:1.5}
+
+.chartrow{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.chartrow svg{flex:0 0 auto;background:var(--row);border:1px solid var(--line);border-radius:4px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:calc(var(--fs) - 2px)}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.legend span.cons .sw{background:var(--cons)} .legend span.mod .sw{background:var(--mod)}
+.legend span.aggr .sw{background:var(--aggr)}
+
+.accounts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.acct h3{font-size:calc(var(--fs) + 1px);margin-bottom:8px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px}
+.frow label{display:flex;flex-direction:column;gap:3px;font-size:calc(var(--fs) - 2px);color:var(--dim)}
+.frow label input{width:100%}
+.frow.wide{grid-template-columns:1fr}
+.acct .name-input{font-size:calc(var(--fs) + 1px);font-weight:600;width:100%;margin-bottom:9px}
+.acct .result{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);
+  display:flex;gap:14px;flex-wrap:wrap;font-size:calc(var(--fs) - 1px)}
+.acct .result b{display:block;font-size:calc(var(--fs) + 1px)}
+
+.assump{display:flex;gap:18px;flex-wrap:wrap}
+.nw-total{font-size:calc(var(--fs) + 14px);font-weight:700;margin-bottom:10px}
+.nw-rows{max-width:420px}
+.nw-row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:5px 0;border-bottom:1px solid var(--line);font-size:calc(var(--fs) - 1px)}
+.nw-row:last-child{border-bottom:none}
+.nw-input{width:120px;text-align:right}
+.assump label{display:flex;flex-direction:column;gap:3px;font-size:calc(var(--fs) - 2px);color:var(--dim)}
+.assump input{width:90px}
+
+.foot{padding:8px 16px;background:var(--foot);border-top:1px solid var(--line);
+  color:var(--dim);font-size:calc(var(--fs) - 2px);flex:0 0 auto}
+</style>
+<script>
+(function(){
+const ROOT=document.getElementById('root');
+const $=s=>ROOT.querySelector(s);
+const KEY='retirement_v1';
+const money=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TODAY=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})();
+const plus=(dateStr,months)=>{const [y,m,d]=dateStr.split('-').map(Number);const dt=new Date(y,m-1+months,d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
+
+const store={
+  async get(){try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null;}catch(e){return null;}},
+  async set(o){try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
+};
+
+/* Placeholder starting values - every field is editable in the page and
+   saved in this browser. The employer match has its own start date, since
+   many plans only begin matching after a waiting period. */
+const fresh=()=>({
+  years:15, dark:false,
+  rates:{cons:4, mod:7, aggr:10},
+  accounts:[
+    {name:"401k", balance:0, asOf:TODAY,
+     monthly:0, match:0, matchStarts:TODAY, escalate:0}
+  ],
+  home:{value:0, appreciation:3, balance:0, rate:6, termYears:30, start:TODAY},
+  otherAssets:0
+});
+let S=fresh();
+
+/* Month-by-month simulation rather than a closed-form annuity formula -
+   trivially handles a match that doesn't start until partway through the
+   window, and stays easy to extend later (auto-escalation, etc). */
+function simulate(acct, annualRatePct, months){
+  const r=(annualRatePct/100)/12;
+  const matchStartMonth=Math.round((new Date(acct.matchStarts)-new Date(TODAY))/(1000*60*60*24*30.44));
+  let bal=+acct.balance||0;
+  let curMonthly=+acct.monthly||0, curMatch=+acct.match||0;
+  const esc=1+((+acct.escalate||0)/100);
+  const yearly=[bal];
+  for(let m=1;m<=months;m++){
+    bal*=(1+r);
+    bal+=curMonthly+((m>=matchStartMonth)?curMatch:0);
+    if(m%12===0){
+      yearly.push(bal);
+      curMonthly*=esc; curMatch*=esc;
+    }
+  }
+  return {final:bal, yearly};
+}
+function monthsSince(startISO,todayISO){
+  const [y1,m1]=startISO.split('-').map(Number), [y2,m2]=todayISO.split('-').map(Number);
+  return (y2-y1)*12+(m2-m1);
+}
+/* Standard fixed-rate amortization, projected forward from today's balance
+   rather than the original loan amount - we derive the correct P&I payment
+   from balance+rate+remaining term instead of trusting a bundled mortgage
+   payment figure that might include escrow (taxes/insurance) and would
+   otherwise make the loan look like it pays down faster than it really does. */
+function amortizeHome(home,months){
+  const elapsed=monthsSince(home.start,TODAY);
+  const remaining=Math.max(1,(+home.termYears||30)*12-elapsed);
+  const r=(+home.rate||0)/100/12;
+  const n=remaining;
+  const payment=r>0 ? (+home.balance)*(r*Math.pow(1+r,n))/(Math.pow(1+r,n)-1) : (+home.balance)/n;
+  let bal=+home.balance||0, val=+home.value||0;
+  const apprM=(+home.appreciation||0)/100/12;
+  const yearlyBal=[bal], yearlyVal=[val];
+  for(let m=1;m<=months;m++){
+    if(bal>0){ const interest=bal*r; const principal=Math.min(bal,payment-interest); bal=Math.max(0,bal-principal); }
+    val*=(1+apprM);
+    if(m%12===0){ yearlyBal.push(bal); yearlyVal.push(val); }
+  }
+  return {yearlyBal, yearlyVal, yearlyEquity:yearlyVal.map((v,i)=>v-yearlyBal[i]), payment};
+}
+function combinedYearly(annualRatePct){
+  const months=S.years*12;
+  const sims=S.accounts.map(a=>simulate(a,annualRatePct,months).yearly);
+  const home=amortizeHome(S.home,months).yearlyEquity;
+  const out=[];
+  for(let y=0;y<=S.years;y++) out.push(sims.reduce((s,arr)=>s+(arr[y]||0),0)+(home[y]||0));
+  return out;
+}
+
+function render(){
+  ROOT.classList.toggle('dark',!!S.dark);
+  const months=S.years*12;
+  const cons=combinedYearly(S.rates.cons), mod=combinedYearly(S.rates.mod), aggr=combinedYearly(S.rates.aggr);
+  const finalCons=cons[cons.length-1], finalMod=mod[mod.length-1], finalAggr=aggr[aggr.length-1];
+  const targetYear=new Date().getFullYear()+S.years;
+
+  ROOT.innerHTML=`
+  <div class="bar">
+    <span class="brand">Retirement</span>
+    <a class="navlink" href="./" title="Back to the checking ledger">&larr; Ledger</a>
+    <div class="spacer"></div>
+    <button id="darkbtn">${S.dark?'&#9728;&#65039; Light':'&#127769; Dark'}</button>
+  </div>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>${S.years}-year net worth trend</h1>
+        <div class="sub">Retirement accounts + home equity, today through ${targetYear}</div>
+      </div>
+      <div class="range">
+        <div class="item"><div class="k">Conservative</div><div class="v cons num">${money(finalCons)}</div></div>
+        <div class="item"><div class="k">Moderate</div><div class="v mod num">${money(finalMod)}</div></div>
+        <div class="item"><div class="k">Aggressive</div><div class="v aggr num">${money(finalAggr)}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Net worth today</h2>
+      <div class="hint">Where you actually stand right now, not a projection - today's account balances,
+      today's home equity, plus anything else you want to count.</div>
+      ${netWorthToday()}
+    </div>
+
+    <div class="card">
+      <h2>Where this could land</h2>
+      <div class="hint">Not a prediction - three market assumptions, side by side, so the range is honest
+      instead of one confident-looking number. Home equity is added on top of every line the same way,
+      since paying down a fixed-rate mortgage isn't a market bet the way retirement accounts are.</div>
+      <div class="chartrow">
+        ${lineChart(cons,mod,aggr)}
+        <div class="assump">
+          <label>Conservative %/yr <input type="number" id="r-cons" value="${S.rates.cons}" step="0.5"></label>
+          <label>Moderate %/yr <input type="number" id="r-mod" value="${S.rates.mod}" step="0.5"></label>
+          <label>Aggressive %/yr <input type="number" id="r-aggr" value="${S.rates.aggr}" step="0.5"></label>
+          <label>Years out <input type="number" id="r-years" value="${S.years}" min="1" max="40"></label>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="cons"><span class="sw"></span>Conservative</span>
+        <span class="mod"><span class="sw"></span>Moderate</span>
+        <span class="aggr"><span class="sw"></span>Aggressive</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Accounts</h2>
+      <div class="hint">Match won't kick in immediately if you're newly enrolled - set the date it
+      actually starts and the projection only counts it from there forward.</div>
+      <div class="accounts">
+        ${S.accounts.map((a,i)=>acctCard(a,i,months)).join('')}
+      </div>
+      <div style="margin-top:10px"><button id="addAcct">+ Add an account</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Home</h2>
+      <div class="hint">Payment is derived from your balance, rate, and remaining term - not the
+      bundled mortgage payment in your ledger, since that likely includes escrow (taxes/insurance)
+      which doesn't reduce principal. Appreciation is just an assumption you set; nobody actually
+      knows what your home will be worth in ${S.years} years.</div>
+      ${homeCard()}
+    </div>
+  </div>
+  <div class="foot">Saved in this browser only. Not financial advice - assumptions you set yourself, not a forecast.</div>`;
+  wire();
+}
+
+function netWorthToday(){
+  const acctTotal=S.accounts.reduce((s,a)=>s+(+a.balance||0),0);
+  const homeEquity=(+S.home.value||0)-(+S.home.balance||0);
+  const other=+S.otherAssets||0;
+  const total=acctTotal+homeEquity+other;
+  return `<div class="nw-total num">${money(total)}</div>
+  <div class="nw-rows">
+    ${S.accounts.map(a=>`<div class="nw-row"><span>${esc(a.name)}</span><span class="num">${money(+a.balance||0)}</span></div>`).join('')}
+    <div class="nw-row"><span>Home equity</span><span class="num">${money(homeEquity)}</span></div>
+    <div class="nw-row"><span>Cash, savings, other</span><input id="otherAssets" class="nw-input num" type="number" step="1" value="${S.otherAssets||0}"></div>
+  </div>`;
+}
+function homeCard(){
+  const h=S.home;
+  const months=S.years*12;
+  const r=amortizeHome(h,months);
+  const startEquity=(+h.value||0)-(+h.balance||0);
+  const endEquity=r.yearlyEquity[r.yearlyEquity.length-1];
+  return `<div class="frow">
+    <label>Home value ($) <input data-hf="value" type="number" step="1000" value="${h.value}"></label>
+    <label>Value grows %/year <input data-hf="appreciation" type="number" step="0.5" value="${h.appreciation}"></label>
+  </div>
+  <div class="frow">
+    <label>Mortgage balance owed ($) <input data-hf="balance" type="number" step="1000" value="${h.balance}"></label>
+    <label>Interest rate % <input data-hf="rate" type="number" step="0.125" value="${h.rate}"></label>
+  </div>
+  <div class="frow">
+    <label>Original loan term (years) <input data-hf="termYears" type="number" step="1" value="${h.termYears}"></label>
+    <label>Loan started <input data-hf="start" type="date" value="${h.start}"></label>
+  </div>
+  <div class="result">
+    <div>Equity today<b class="num">${money(startEquity)}</b></div>
+    <div>Equity in ${S.years}yr<b class="num">${money(endEquity)}</b></div>
+    <div>Derived P&amp;I payment<b class="num">${money(r.payment)}/mo</b></div>
+  </div>`;
+}
+function acctCard(a,i,months){
+  const c=simulate(a,S.rates.cons,months).final, m=simulate(a,S.rates.mod,months).final, g=simulate(a,S.rates.aggr,months).final;
+  return `<div class="acct" data-i="${i}">
+    <input class="name-input" data-f="name" value="${esc(a.name)}">
+    <div class="frow">
+      <label>Current balance ($) <input data-f="balance" type="number" step="0.01" value="${a.balance}"></label>
+      <label>As of <input data-f="asOf" type="date" value="${a.asOf}"></label>
+    </div>
+    <div class="frow">
+      <label>Your monthly contribution ($) <input data-f="monthly" type="number" step="1" value="${a.monthly}"></label>
+      <label>Employer match ($/mo once active) <input data-f="match" type="number" step="1" value="${a.match}"></label>
+    </div>
+    <div class="frow">
+      <label>Match starts <input data-f="matchStarts" type="date" value="${a.matchStarts}"></label>
+      <label>Contribution grows %/year <input data-f="escalate" type="number" step="0.5" value="${a.escalate||0}"></label>
+    </div>
+    <div class="result">
+      <div>Conservative<b class="num">${money(c)}</b></div>
+      <div>Moderate<b class="num">${money(m)}</b></div>
+      <div>Aggressive<b class="num">${money(g)}</b></div>
+      <div class="spacer"></div>
+      <button class="mini" data-del="${i}">Remove</button>
+    </div>
+  </div>`;
+}
+
+function lineChart(cons,mod,aggr){
+  const W=520,H=260,padL=54,padB=26,padT=10,padR=10;
+  const all=[...cons,...mod,...aggr];
+  const maxV=Math.max(...all,1);
+  const x=i=>padL+(i/(cons.length-1))*(W-padL-padR);
+  const y=v=>H-padB-(v/maxV)*(H-padT-padB);
+  const path=arr=>arr.map((v,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const yTicks=4;
+  let gridlines='';
+  for(let t=0;t<=yTicks;t++){
+    const v=maxV*t/yTicks, yy=y(v);
+    gridlines+=`<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${padL-6}" y="${(yy+3).toFixed(1)}" font-size="9" fill="var(--dim)" text-anchor="end">${money(v)}</text>`;
+  }
+  let xlabels='';
+  for(let i=0;i<cons.length;i+=Math.ceil(cons.length/8)||1){
+    xlabels+=`<text x="${x(i).toFixed(1)}" y="${H-8}" font-size="9" fill="var(--dim)" text-anchor="middle">${i}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    ${gridlines}${xlabels}
+    <path d="${path(cons)}" fill="none" stroke="var(--cons)" stroke-width="2"/>
+    <path d="${path(mod)}" fill="none" stroke="var(--mod)" stroke-width="2"/>
+    <path d="${path(aggr)}" fill="none" stroke="var(--aggr)" stroke-width="2"/>
+  </svg>`;
+}
+
+function wire(){
+  $('#darkbtn').onclick=()=>{S.dark=!S.dark;save();render();};
+  $('#r-cons').onchange=e=>{S.rates.cons=parseFloat(e.target.value)||0;save();render();};
+  $('#r-mod').onchange=e=>{S.rates.mod=parseFloat(e.target.value)||0;save();render();};
+  $('#r-aggr').onchange=e=>{S.rates.aggr=parseFloat(e.target.value)||0;save();render();};
+  $('#r-years').onchange=e=>{S.years=Math.max(1,Math.min(40,parseInt(e.target.value)||15));save();render();};
+  $('#addAcct').onclick=()=>{S.accounts.push({name:'New account',balance:0,asOf:TODAY,monthly:0,match:0,matchStarts:TODAY,escalate:0});save();render();};
+  ROOT.querySelectorAll('.acct').forEach(card=>{
+    const i=+card.dataset.i;
+    card.querySelectorAll('[data-f]').forEach(inp=>inp.onchange=()=>{
+      const f=inp.dataset.f;
+      S.accounts[i][f]=(f==='balance'||f==='monthly'||f==='match'||f==='escalate')?(parseFloat(inp.value)||0):inp.value;
+      save();render();
+    });
+  });
+  ROOT.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    S.accounts.splice(+b.dataset.del,1);save();render();
+  });
+  ROOT.querySelectorAll('[data-hf]').forEach(inp=>inp.onchange=()=>{
+    const f=inp.dataset.hf;
+    S.home[f]=(f==='start')?inp.value:(parseFloat(inp.value)||0);
+    save();render();
+  });
+  if($('#otherAssets')) $('#otherAssets').onchange=e=>{
+    S.otherAssets=parseFloat(e.target.value)||0;save();render();
+  };
+}
+
+let t;
+const save=()=>{clearTimeout(t);t=setTimeout(()=>store.set(S),250);};
+
+(async()=>{
+  const v=await store.get();
+  if(v&&v.accounts) S=Object.assign(fresh(),v);
+  render();
+})();
+})();
+</script>
