@@ -179,6 +179,8 @@ td input,td select{width:100%;padding:1px 3px}
 .reco label{display:block;font-size:calc(var(--fs) - 3px);color:var(--dim);margin:7px 0 2px;
   text-transform:uppercase;letter-spacing:.04em}
 .reco input,.reco select{width:100%}
+.reco .sf-opt{display:flex;align-items:center;gap:6px;color:var(--text);font-size:calc(var(--fs) - 1px);text-transform:none;letter-spacing:0;cursor:pointer;margin:6px 0}
+.reco .sf-opt input{width:auto;margin:0}
 .reco .rc-diff{margin:9px 0;font-size:calc(var(--fs) - 2px);color:var(--text);line-height:1.4}
 .reco .rc-diff.ok{color:#2f7d32}
 .reco .rc-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:2px}
@@ -525,10 +527,9 @@ function computeDupSet(rows){
   return dup;
 }
 
-/* Savings-type accounts listed in TAB_BAL (by account id) show their checked-box
-   balance right on the tab, so the current amount is visible without
-   switching to it. Cleared rows only - future generated deposits don't count. */
-const TAB_BAL=new Set([]); // e.g. new Set(['a3']) - ids are a1, a2, ... in creation order
+/* Every account tab shows its checked-box balance, so the current amount is
+   visible without switching to it. Cleared rows only - future generated
+   deposits don't count. */
 function clearedBalOf(a){
   return (+a.opening||0)+S.txns.filter(t=>t.acct===a.id&&t.cleared)
     .reduce((s,t)=>s+(+t.inflow||0)-(+t.outflow||0),0);
@@ -560,7 +561,7 @@ function render(){
   ROOT.innerHTML=`
   ${store.ok?'':`<div class="warnbar">Not saving right now. Changes will be lost on reload. Hit <b>Export</b> to keep a copy.</div>`}
   <div class="bar">
-    ${S.accounts.map(a=>`<button class="${S.filter===a.id?'on':''}" data-f="${a.id}">${esc(a.name)}${TAB_BAL.has(a.id)?` <span class="tabbal num">${money(clearedBalOf(a))}</span>`:''}</button>`).join('')}
+    ${S.accounts.map(a=>`<button class="${S.filter===a.id?'on':''}" data-f="${a.id}">${esc(a.name)} <span class="tabbal num">${money(clearedBalOf(a))}</span></button>`).join('')}
     <button class="${both?'on':''}" data-f="all">${S.accounts.length>2?'All':'Both'}</button>
     <button id="acctBtn" class="mini" title="Start tracking another account (savings, 401k, a new card...)">+ Account</button>
     <button id="add">+ Add a transaction</button>
@@ -1049,12 +1050,19 @@ async function drawReco(){
   if(!recoOpen) return;   // closed while the fetch was in flight
 
   if(!acct.sfAcctId){
+    /* Radio list, not a native <select> - clicking an option in the OS
+       popup silently does nothing in some browsers on KDE/Wayland, which left this
+       stuck on the first bank account. Pre-picks the bank account whose
+       name shares the most words with the ledger account's. */
+    const words=n=>new Set(n.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>2).map(w=>w.replace(/s$/,'')));
+    const mine=words(acct.name), taken=new Set(S.accounts.map(a=>a.sfAcctId).filter(Boolean));
+    let guess=null, best=0;
+    data.accounts.forEach(a=>{ if(taken.has(a.id)) return;
+      const n=[...words(a.name)].filter(w=>mine.has(w)).length; if(n>best){ best=n; guess=a.id; } });
     el.innerHTML=`
       <div class="rhead2">Which bank account is "${esc(acct.name)}"?</div>
-      <label>Bank account
-        <select id="sf-pick">${data.accounts.map(a=>
-          `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')}</select>
-      </label>
+      <div class="sf-list">${data.accounts.map(a=>
+        `<label class="sf-opt"><input type="radio" name="sf-pick" value="${esc(a.id)}"${a.id===guess?' checked':''}> ${esc(a.name)}</label>`).join('')}</div>
       <div class="rc-btns">
         <button id="rc-cancel">Cancel</button>
         <button id="rc-go" class="go">Link &amp; sync</button>
@@ -1063,7 +1071,9 @@ async function drawReco(){
     el.querySelector('#rc-cancel').onclick=closeReco;
     el.querySelector('#rc-go').onclick=()=>{
       beforeChange();
-      acct.sfAcctId=el.querySelector('#sf-pick').value;
+      const pick=el.querySelector('input[name="sf-pick"]:checked');
+      if(!pick) return;
+      acct.sfAcctId=pick.value;
       save();
       runSync(acct,data,el,btn);
     };
@@ -1092,6 +1102,10 @@ function runSync(acct,data,el,btn){
   const dateOf=posted=>iso(new Date(posted*1000));
   const alreadySynced=new Set(S.txns.filter(t=>t.acct===acct.id&&t.sfTxnId).map(t=>t.sfTxnId));
   const open=S.txns.filter(t=>t.acct===acct.id&&!t.cleared&&t.date<=today&&!t.sfTxnId);
+  /* Rows already ticked by hand (or by Reconcile manually) but never tied to
+     a bank transaction - second-choice matches, so a deposit you checked off
+     yourself gets tagged instead of inserted again as a duplicate. */
+  const handCleared=S.txns.filter(t=>t.acct===acct.id&&t.cleared&&t.date<=today&&!t.sfTxnId);
   const used=new Set();
   let matched=0, added=0;
 
@@ -1102,13 +1116,15 @@ function runSync(acct,data,el,btn){
     const btDate=dateOf(bt.posted);
 
     let best=null, bestGap=Infinity;
-    open.forEach(row=>{
+    const look=row=>{
       if(used.has(row.id)) return;
       const sameAmt=Math.abs((+row.inflow||0)-inflow)<0.005&&Math.abs((+row.outflow||0)-outflow)<0.005;
       if(!sameAmt) return;
       const gap=Math.abs((parse(row.date)-parse(btDate))/864e5);
       if(gap<=3&&gap<bestGap){ best=row; bestGap=gap; }
-    });
+    };
+    open.forEach(look);
+    if(!best) handCleared.forEach(look);
 
     if(best){
       best.cleared=true; best.sfTxnId=bt.id; best.edited=true;
