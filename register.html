@@ -84,6 +84,11 @@ td.bal{font-weight:600}
 .cell:hover{background:var(--celledit);box-shadow:inset 0 0 0 1px var(--celllineedit)}
 td input,td select{width:100%;padding:1px 3px}
 .datewrap{display:flex;align-items:center}
+.ac{position:fixed;z-index:60;background:var(--cal);border:1px solid var(--calline);border-radius:4px;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);max-height:260px;overflow-y:auto;min-width:220px}
+#root .ac div{padding:5px 10px;cursor:pointer;white-space:nowrap;color:var(--text);font-size:var(--fs)}
+#root .ac div:hover{background:var(--hover)}
+#root .ac div.on{background:#3d7fd6;color:#fff}
 .cal{position:fixed;z-index:50;background:var(--cal);border:1px solid var(--calline);border-radius:4px;
   box-shadow:0 6px 22px rgba(0,0,0,.35);padding:7px;width:max-content}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px}
@@ -282,6 +287,33 @@ const PAYEE_CAT_RULES=[
 const autoCatFor=payee=>{
   const hit=PAYEE_CAT_RULES.find(([re])=>re.test(payee));
   return hit?hit[1]:null;
+};
+/* Category last used for this exact payee (newest row wins), so a repeat
+   payee fills its usual category. Falls back to PAYEE_CAT_RULES. */
+const histCatFor=(payee,skipId)=>{
+  const k=payee.trim().toLowerCase(); if(!k) return null;
+  let best=null;
+  S.txns.forEach(x=>{
+    if(x.id===skipId||!x.cat||x.cat==='Uncategorized'||(x.payee||'').trim().toLowerCase()!==k) return;
+    if(!best||x.date>best.date||(x.date===best.date&&(x.ord||0)>(best.ord||0))) best=x;
+  });
+  return best?best.cat:autoCatFor(payee);
+};
+/* Payee suggestions: prefix matches before substring matches, then the
+   most-used payees first. */
+const payeeSuggest=(q,skipId)=>{
+  const cnt=new Map();
+  S.txns.forEach(x=>{ const p=(x.payee||'').trim(); if(p&&x.id!==skipId) cnt.set(p,(cnt.get(p)||0)+1); });
+  const k=q.trim().toLowerCase(); if(!k) return [];
+  return [...cnt.keys()].filter(p=>p.toLowerCase().includes(k))
+    .sort((a,b)=>(b.toLowerCase().startsWith(k)-a.toLowerCase().startsWith(k))||(cnt.get(b)-cnt.get(a))||a.localeCompare(b))
+    .slice(0,12);
+};
+const catSuggest=q=>{
+  const k=q.trim().toLowerCase(); if(!k) return CATS.slice();
+  return CATS.filter(c=>c.toLowerCase().includes(k))
+    .sort((a,b)=>(b.toLowerCase().startsWith(k)-a.toLowerCase().startsWith(k))||
+      ((b.split(': ')[1]||'').toLowerCase().startsWith(k)-(a.split(': ')[1]||'').toLowerCase().startsWith(k)));
 };
 
 const blankRule=()=>({id:nid(),payee:'',cat:'Uncategorized',acct:'a1',toAcct:'',amt:0,dir:'out',
@@ -847,14 +879,45 @@ function edit(td,id,f){
   const t=S.txns.find(x=>x.id===id); if(!t) return;
   let el;
   if(f==='date'){el=document.createElement('input');el.type='date';el.value=t.date;}
-  else if(f==='cat'||f==='acct'){
+  else if(f==='acct'){
     el=document.createElement('select');
-    (f==='cat'?CATS.map(c=>[c,c]):S.accounts.map(a=>[a.id,a.name])).forEach(([v,l])=>{
+    S.accounts.map(a=>[a.id,a.name]).forEach(([v,l])=>{
       const o=document.createElement('option');o.value=v;o.textContent=l;
       if(t[f]===v)o.selected=true;el.appendChild(o);});
   }else{el=document.createElement('input');el.type='text';el.value=t[f]||'';}
+  /* Payee and Category get a custom-drawn suggestion list instead of a
+     native datalist/select (native popup clicks are unreliable on some KDE/Wayland setups, and a
+     datalist's highlighted entry isn't taken on Tab). The top match is
+     highlighted; Tab/Enter takes it, arrows move, a click picks one. */
+  let ac=null, acItems=[], acIdx=-1;
+  const acClose=()=>{ if(ac){ac.remove();ac=null;} acItems=[]; acIdx=-1; };
+  const acDraw=()=>{
+    if(!acItems.length){ if(ac){ac.remove();ac=null;} return; }
+    if(!ac){ ac=document.createElement('div'); ac.className='ac'; ROOT.appendChild(ac);
+      ac.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        const d=e.target.closest('[data-i]'); if(!d) return;
+        el.value=acItems[+d.dataset.i]; acClose(); el.blur();
+      }); }
+    const b=el.getBoundingClientRect();
+    ac.style.left=b.left+'px'; ac.style.top=(b.bottom+2)+'px'; ac.style.minWidth=Math.max(220,b.width)+'px';
+    ac.innerHTML=acItems.map((v,i)=>`<div data-i="${i}" class="${i===acIdx?'on':''}">${esc(v)}</div>`).join('');
+    const on=ac.querySelector('.on'); if(on) on.scrollIntoView({block:'nearest'});
+  };
+  const acRefresh=initial=>{
+    if(f==='payee'){ acItems=payeeSuggest(el.value,id); acIdx=acItems.length?0:-1; }
+    else { acItems=catSuggest(initial?'':el.value);
+      acIdx=initial?acItems.indexOf(t.cat):(acItems.length?0:-1); }
+    acDraw();
+  };
+  const acScroll=()=>{ if(ac) acDraw(); };
+  if(f==='payee'||f==='cat'){
+    el.setAttribute('autocomplete','off');
+    el.addEventListener('input',()=>acRefresh(false));
+    ROOT.addEventListener('scroll',acScroll,true);
+    el.addEventListener('blur',()=>{ acClose(); ROOT.removeEventListener('scroll',acScroll,true); });
+  }
   if(f==='payee'){
-    el.setAttribute('list','payeeDL');
     el.addEventListener('input',()=>{
       const guess=autoCatFor(el.value);
       if(guess && t.cat==='Uncategorized'){
@@ -864,10 +927,23 @@ function edit(td,id,f){
       }
     });
   }
-  td.innerHTML='';td.appendChild(el);el.focus();if(el.select)el.select();
+  td.innerHTML='';td.appendChild(el);el.focus({preventScroll:true});if(el.select)el.select();
+  if(f==='cat') acRefresh(true);
   let pendingTab=0;
   const done=()=>{
     let v=el.value;
+    if(f==='cat'){
+      /* Free text has to land on a real category; anything else keeps the old one. */
+      const hit=CATS.find(c=>c.toLowerCase()===String(v).trim().toLowerCase());
+      v=hit||t.cat;
+    }
+    if(f==='payee'){
+      v=String(v).trim();
+      /* Repeat payee: fill its usual category, but only over the untouched
+         default (or a guess this same edit made live), never over a pick. */
+      const guess=v&&histCatFor(v,id);
+      if(guess&&(t.cat==='Uncategorized'||t.cat===autoCatFor(v))) t.cat=guess;
+    }
     if(f==='outflow'||f==='inflow'){
       const raw=String(v).trim();
       /* Only treat it as a formula if there's an operator that isn't just a
@@ -893,6 +969,12 @@ function edit(td,id,f){
   };
   el.addEventListener('blur',done,{once:true});
   el.addEventListener('keydown',e=>{
+    if(ac&&(e.key==='ArrowDown'||e.key==='ArrowUp')){
+      e.preventDefault();
+      acIdx=(acIdx+(e.key==='ArrowDown'?1:-1)+acItems.length)%acItems.length; acDraw(); return;
+    }
+    if(ac&&e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); acClose(); return; }
+    if(ac&&acIdx>=0&&(e.key==='Enter'||(e.key==='Tab'&&!e.shiftKey))) el.value=acItems[acIdx];
     if(e.key==='Enter'){e.preventDefault();el.blur();}
     else if(e.key==='Escape'){e.preventDefault();el.removeEventListener('blur',done);render();}
     else if(e.key==='Tab'){e.preventDefault();pendingTab=e.shiftKey?-1:1;el.blur();}
@@ -1388,6 +1470,10 @@ function wireTable(){
     S.txns.push({id,ord:seq++,date:TODAY(),acct:acctId,
       payee:'',cat:'Uncategorized',memo:'',outflow:0,inflow:0,cleared:false});
     selId=id;save();render();jump(id);
+    requestAnimationFrame(()=>{
+      const c=ROOT.querySelector(`tr[data-id="${id}"] .cell[data-e="payee"]`);
+      if(c) edit(c.closest('td'),id,'payee');
+    });
   };
   $('#rules').onclick=()=>{S.showRules=!S.showRules; if(S.showRules) S.showChart=false; drawerAnim=true;save();render();};
   $('#chartBtn').onclick=()=>{S.showChart=!S.showChart; if(S.showChart) S.showRules=false; drawerAnim=true;save();render();};

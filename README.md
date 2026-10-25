@@ -33,6 +33,9 @@ iterated. Same story as my
   (optional): pulls real transactions, clears what matches, adds what's
   missing, and leaves mismatches visible instead of papering over them
 - A manual reconcile (type in the bank's balance) as a fallback
+- Keyboard-first entry: a new transaction opens straight into Payee, Tab
+  accepts the top payee/category suggestion and moves on, and a repeat payee
+  fills in the category it was last given
 - Payee → category auto-guessing, duplicate detection, a spending chart,
   one-step undo, payee filter, arithmetic in amount fields (`750-350`)
 - A separate retirement projection page (401k-style accounts with employer
