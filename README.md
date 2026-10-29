@@ -31,8 +31,13 @@ iterated. Same story as my
   together, deleted together, and kept balanced if you correct the amount
 - **Bank sync** via [SimpleFIN Bridge](https://beta-bridge.simplefin.org/)
   (optional): pulls real transactions, clears what matches, adds what's
-  missing, and leaves mismatches visible instead of papering over them
+  missing (categorized from that payee's history), and leaves mismatches visible instead of papering over them
 - A manual reconcile (type in the bank's balance) as a fallback
+- **Envelope budget** (YNAB4-style) for one account: assign money to
+  categories each month, leftovers roll over, overspending comes out of next
+  month's Ready to Assign. Ready to Assign is worked out from the real
+  balance, so it can't drift from the bank. "Fill from bills" pre-fills from
+  your recurring rules
 - Keyboard-first entry: a new transaction opens straight into Payee, Tab
   accepts the top payee/category suggestion and moves on, and a repeat payee
   fills in the category it was last given

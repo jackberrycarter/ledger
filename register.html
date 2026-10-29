@@ -50,6 +50,22 @@ html,body{height:100%;margin:0}
   outline:2px solid #3d7fd6;outline-offset:1px}
 .spacer{flex:1}
 .pfilt{display:flex;align-items:center;gap:4px}
+.budget .bhead{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.budget .bhead h3{margin:0;min-width:10em;text-align:center}
+.budget .grow{flex:1}
+.budget .rta{font-size:calc(var(--fs) + 2px);font-weight:700}
+.budget .rta .k{color:var(--dim);font-weight:600;font-size:calc(var(--fs) - 2px)}
+.budget .bplan{color:var(--dim);margin:2px 0 8px}
+.budget .btab{width:100%;border-collapse:collapse}
+.budget .btab th{text-align:left;color:var(--dim);font-weight:600;padding:3px 8px;border-bottom:1px solid var(--dim)}
+.budget .btab th.num,.budget .btab td.num{text-align:right}
+.budget .btab td{padding:2px 8px}
+.budget .bgrp td{font-weight:700;padding-top:9px;border-bottom:1px solid var(--alt)}
+.budget .bname{padding-left:20px}
+.budget input.basg{width:7.5em;text-align:right}
+.budget .bfoot{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.budget #bNewCat{width:26em}
+.budget .warnish{border-color:#c98a1b}
 #root .pfilt input{width:10em}
 #root .pfilt input.active{border-color:#3d7fd6;box-shadow:0 0 0 1px #3d7fd6}
 #root .filtbar{padding:4px 10px;background:var(--bar);color:#e4e7ea;font-size:calc(var(--fs) - 2px);
@@ -272,32 +288,36 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const CATS=['Income','Transfer','Monthly Bills: Rent/Mortgage','Monthly Bills: Electricity',
  'Monthly Bills: Natural Gas/Propane/Oil','Monthly Bills: Water','Monthly Bills: Internet',
  'Monthly Bills: Cable TV','Monthly Bills: Phone','Monthly Bills: Car Payment',
- 'Everyday Expenses: Groceries','Everyday Expenses: Fuel','Everyday Expenses: Spending Money',
- 'Everyday Expenses: Video Games/PlayStation',
+ 'Monthly Bills: Subscriptions','Monthly Bills: Homelab','Monthly Bills: Debt Payments',
+ 'Everyday Expenses: Groceries/Gas','Everyday Expenses: Household','Everyday Expenses: Spending Money',
+ 'Everyday Expenses: Allowance','Everyday Expenses: Video Games/PlayStation',
  'Rainy Day Funds: Car Insurance','Rainy Day Funds: Car Repairs','Rainy Day Funds: Medical',
- 'Savings Goals','Uncategorized'];
+ 'Savings Goals','Savings Goals: Emergency Fund','Uncategorized'];
 
 /* Payee -> category guesses, applied live while typing a payee (only when the
    row's category is still the untouched default, so it never overwrites a
    category you picked on purpose). Add more [regex, category] pairs here as
    patterns come up. */
 const PAYEE_CAT_RULES=[
-  [/walmart/i,'Everyday Expenses: Groceries'],
+  [/walmart/i,'Everyday Expenses: Groceries/Gas'],
 ];
 const autoCatFor=payee=>{
   const hit=PAYEE_CAT_RULES.find(([re])=>re.test(payee));
   return hit?hit[1]:null;
 };
 /* Category last used for this exact payee (newest row wins), so a repeat
-   payee fills its usual category. Falls back to PAYEE_CAT_RULES. */
-const histCatFor=(payee,skipId)=>{
+   payee fills its usual category. Falls back to PAYEE_CAT_RULES. Pass dir
+   ('in'/'out') to only learn from rows going the same way, so a Walmart
+   paycheck deposit never teaches a Walmart purchase to be Income. */
+const histCatFor=(payee,skipId,dir)=>{
   const k=payee.trim().toLowerCase(); if(!k) return null;
   let best=null;
   S.txns.forEach(x=>{
     if(x.id===skipId||!x.cat||x.cat==='Uncategorized'||(x.payee||'').trim().toLowerCase()!==k) return;
+    if(dir&&((+x.inflow||0)>0?'in':'out')!==dir) return;
     if(!best||x.date>best.date||(x.date===best.date&&(x.ord||0)>(best.ord||0))) best=x;
   });
-  return best?best.cat:autoCatFor(payee);
+  return best?best.cat:(dir==='in'?null:autoCatFor(payee));
 };
 /* Payee suggestions: prefix matches before substring matches, then the
    most-used payees first. */
@@ -585,7 +605,10 @@ function render(){
   const hiddenCount=lockDate&&!S.showReconciled ? rows.filter(r=>r.date<=lockDate&&r.cleared).length : 0;
   const lockRows=lockDate&&!S.showReconciled ? rows.filter(r=>!(r.date<=lockDate&&r.cleared)) : rows;
   const pq=payeeQ.trim().toLowerCase();
-  const visRows=pq?lockRows.filter(r=>(r.payee||'').toLowerCase().includes(pq)):lockRows;
+  /* catQ (budget panel's "Uncategorized" link) looks past the reconcile lock -
+     the point is to find every one of those rows. */
+  const catRows=catQ?rows.filter(r=>r.cat===catQ.cat&&!r.xferId&&r.date.slice(0,7)===catQ.month&&r.date<=TODAY()):lockRows;
+  const visRows=pq?catRows.filter(r=>(r.payee||'').toLowerCase().includes(pq)):catRows;
   const fOut=visRows.reduce((s,r)=>s+(+r.outflow||0),0), fIn=visRows.reduce((s,r)=>s+(+r.inflow||0),0);
   ROOT.style.setProperty('--fs',S.fs+'px');
   ROOT.classList.toggle('dark',!!S.dark);
@@ -618,6 +641,8 @@ function render(){
     <button id="toggleReconciled" class="mini">${S.showReconciled?'Hide again':'Show reconciled'}</button>
     <button id="clearLock" class="mini" title="Wrong date? Undo the lock entirely.">Clear lock</button></div>`:''}
 
+  ${catQ?`<div class="filtbar">${esc(catQ.cat)} in ${ymLabel(catQ.month)}: ${visRows.length} row${visRows.length===1?'':'s'}
+    &middot; out ${money(fOut)} &middot; in ${money(fIn)} <button id="catQx" class="mini">Show everything</button></div>`:''}
   ${pq?`<div class="filtbar">Payee filter &ldquo;${esc(payeeQ.trim())}&rdquo;: ${visRows.length} row${visRows.length===1?'':'s'}
     &middot; out ${money(fOut)} &middot; in ${money(fIn)}${hiddenCount?` &middot; reconciled rows still tucked away`:''}
     &middot; balances shown are the whole account's</div>`:''}
@@ -649,11 +674,12 @@ function render(){
      </div></td></tr>`)}
   </tbody></table></div>
 
-  <div id="drawer" class="drawer">${S.showChart?chartPanel():panel()}</div>
+  <div id="drawer" class="drawer">${drawerHTML()}</div>
 
   <div class="foot">
     <button id="rules" class="${S.showRules?'on':''}">Recurring</button>
     <button id="chartBtn" class="${S.showChart?'on':''}">Chart</button>
+    <button id="budgetBtn" class="${S.showBudget?'on':''}">Budget</button>
     <span class="saveto">${store.mode==='server'?'Saving to server':'Saving in this browser'}</span>
     <span class="grow"></span>
     <span><span class="k">Cleared Balance</span>
@@ -672,9 +698,9 @@ function render(){
   if(newWrap) newWrap.scrollTop=prevScroll;
   lastProgWrapScroll=newWrap?newWrap.scrollTop:null;
   const dr=$('#drawer');
-  const drawerWants=S.showRules||S.showChart;
+  const drawerWants=S.showRules||S.showChart||S.showBudget;
   if(dr){
-    const full=()=>Math.min(dr.scrollHeight,Math.round(window.innerHeight*0.42))+'px';
+    const full=()=>Math.min(dr.scrollHeight,Math.round(window.innerHeight*drawerFrac()))+'px';
     if(drawerAnim){
       drawerAnim=false;
       if(drawerWants){
@@ -803,6 +829,203 @@ function wireChartPanel(){
   });
   const sel=$('#chartMonthSel');
   if(sel) sel.onchange=()=>{ S.chartMonth=sel.value; save(); deferPanel(); };
+}
+
+/* ---------- Budget (YNAB4-style envelopes) ----------
+   One budgeted account (S.budget.acct). Every category except Income,
+   Transfer and Uncategorized is an envelope. Each month:
+     Available = last month's Available (if positive - overspending resets
+                 to 0, YNAB4 style) + Assigned + Activity
+   Ready to Assign is never stored. It is always derived from the real
+   account balance:
+     balance - sum(Available this month) - sum(Assigned in future months)
+   so uncategorized spending, adjustments and last month's overspending all
+   come out of it on their own, and it can never drift from the bank.
+   "Real" rows = dated today or earlier, and either cleared or typed by hand.
+   An unchecked recurring projection doesn't count until it posts, so money
+   that hasn't arrived can't be budgeted. */
+const ENV_SKIP=new Set(['Income','Transfer','Uncategorized']);
+const ym=s=>s.slice(0,7);
+const ymAdd=(m,n)=>{const[y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+n,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;};
+const ymLabel=m=>{const[y,mo]=m.split('-');return `${['January','February','March','April','May','June','July','August','September','October','November','December'][+mo-1]} ${y}`;};
+function ensureBudget(){
+  if(!S.budget){
+    /* Linked transfers out of the budgeted account land in an envelope by
+       destination account, seeded once by name; ones with no mapping just
+       come out of Ready to Assign. */
+    const xferEnv={};
+    S.accounts.forEach(a=>{
+      if(/emergency/i.test(a.name)) xferEnv[a.id]='Savings Goals: Emergency Fund';
+      else if(/allowance/i.test(a.name)) xferEnv[a.id]='Everyday Expenses: Allowance';
+    });
+    S.budget={acct:'a1',start:ym(TODAY()),assigned:{},cats:[],xferEnv};
+  }
+  return S.budget;
+}
+/* Categories added from the budget panel: add-only, slotted in before Uncategorized. */
+function mergeBudgetCats(){
+  ((S.budget&&S.budget.cats)||[]).forEach(c=>{ if(!CATS.includes(c)) CATS.splice(CATS.indexOf('Uncategorized'),0,c); });
+}
+const envCats=()=>CATS.filter(c=>!ENV_SKIP.has(c));
+const isRealRow=t=>t.date<=TODAY()&&(t.cleared||!t.ruleId);
+/* Which envelope a row in the budgeted account belongs to, or null. */
+function envOf(t,xferSib){
+  const B=S.budget;
+  if(t.acct!==B.acct) return null;
+  if(t.xferId){ const sib=xferSib.get(t.xferId+'|'+t.id); return sib?(B.xferEnv[sib]||null):null; }
+  return ENV_SKIP.has(t.cat)?null:(CATS.includes(t.cat)?t.cat:null);
+}
+function budgetCalc(view){
+  const B=ensureBudget(), today=TODAY();
+  const curM=ym(today)<B.start?B.start:ym(today);
+  const xferSib=new Map();
+  S.txns.forEach(t=>{ if(t.xferId) S.txns.forEach(x=>{ if(x.xferId===t.xferId&&x.id!==t.id) xferSib.set(t.xferId+'|'+t.id,x.acct); }); });
+  const act={};   // month -> cat -> net (inflow - outflow), real rows only
+  let bal=+((S.accounts.find(a=>a.id===B.acct)||{}).opening)||0;
+  S.txns.forEach(t=>{
+    if(t.acct!==B.acct||!isRealRow(t)) return;
+    const net=(+t.inflow||0)-(+t.outflow||0);
+    bal+=net;
+    const m=ym(t.date); if(m<B.start) return;
+    const c=envOf(t,xferSib); if(!c) return;
+    (act[m]=act[m]||{})[c]=((act[m]||{})[c]||0)+net;
+  });
+  const cats=envCats(), last=view>curM?view:curM;
+  const avail={};  // month -> cat -> available
+  const asg=(m,c)=>+((B.assigned[m]||{})[c])||0;
+  cats.forEach(c=>{
+    let a=0;
+    for(let m=B.start;m<=last;m=ymAdd(m,1)){
+      a=(m===B.start?0:Math.max(0,a))+asg(m,c)+(((act[m]||{})[c])||0);
+      (avail[m]=avail[m]||{})[c]=a;
+    }
+  });
+  let future=0;
+  Object.keys(B.assigned).forEach(m=>{ if(m>curM) cats.forEach(c=>future+=asg(m,c)); });
+  const curAvail=cats.reduce((s,c)=>s+((avail[curM]||{})[c]||0),0);
+  const rta=Math.round((bal-curAvail-future)*100)/100;
+  /* Planning line for the viewed month: income that's arrived plus income
+     the recurring rules still expect (projections dated after today). */
+  let expIncome=0, uncat=0, uncatN=0;
+  S.txns.forEach(t=>{
+    if(t.acct!==B.acct||ym(t.date)!==view) return;
+    const real=isRealRow(t), proj=t.ruleId&&!t.cleared&&t.date>today;
+    if(t.cat==='Income'&&(real||proj)) expIncome+=(+t.inflow||0)-(+t.outflow||0);
+    if(t.cat==='Uncategorized'&&real&&!t.xferId){ uncat+=(+t.outflow||0)-(+t.inflow||0); uncatN++; }
+  });
+  const assignedView=cats.reduce((s,c)=>s+asg(view,c),0);
+  return {cats,act,avail,asg,rta,curM,expIncome,assignedView,uncat,uncatN,xferSib};
+}
+/* What the recurring rules charge each envelope in month m (projections
+   and posted rule rows alike), for "Fill from bills". */
+function billsFor(m,xferSib){
+  const out={};
+  S.txns.forEach(t=>{
+    if(!t.ruleId||ym(t.date)!==m) return;
+    const c=envOf(t,xferSib); if(!c) return;
+    out[c]=(out[c]||0)+(+t.outflow||0)-(+t.inflow||0);
+  });
+  return out;
+}
+let budgetView=null, catQ=null;   // session-only: viewed month, register category filter
+function budgetPanel(){
+  const B=ensureBudget();
+  if(!budgetView) budgetView=ym(TODAY())<B.start?B.start:ym(TODAY());
+  const v=budgetView, R=budgetCalc(v);
+  const groups=[];
+  R.cats.forEach(c=>{
+    const i=c.indexOf(': '), g=i>0?c.slice(0,i):c, n=i>0?c.slice(i+2):'General';
+    let G=groups.find(x=>x.g===g); if(!G) groups.push(G={g,rows:[]});
+    G.rows.push([c,n]);
+  });
+  const left=R.expIncome-R.assignedView;
+  const cell=(m,c)=>{ const a=(R.avail[m]||{})[c]||0; return `<span class="num ${a<0?'neg':''}">${money(a)}</span>`; };
+  return `<div class="panel budget">
+  <div class="bhead">
+    <button id="bPrev" class="mini" ${v<=B.start?'disabled':''} title="Previous month">&#9664;</button>
+    <h3>${ymLabel(v)}</h3>
+    <button id="bNext" class="mini" title="Next month">&#9654;</button>
+    <span class="grow"></span>
+    <span class="rta ${R.rta<0?'neg':''}"><span class="k">Ready to Assign</span> <span class="num" id="bRta">${money(R.rta)}</span></span>
+  </div>
+  <div class="bplan" id="bPlan">Expected income ${money(R.expIncome)} &middot; assigned ${money(R.assignedView)}
+    &middot; <b class="${left<0?'neg':''}">${money(left)}</b> not planned yet this month</div>
+  <table class="btab"><thead><tr><th>Envelope</th><th class="num">Assigned</th><th class="num">Spent</th><th class="num">Available</th></tr></thead>
+  <tbody>${groups.map(G=>`<tr class="bgrp"><td colspan="4">${esc(G.g)}</td></tr>`+G.rows.map(([c,n])=>{
+    const a=(R.act[v]||{})[c]||0;
+    return `<tr><td class="bname">${esc(n)}</td>
+      <td class="num"><input class="num basg" data-bc="${esc(c)}" value="${R.asg(v,c)?R.asg(v,c).toFixed(2):''}" placeholder="0.00" autocomplete="off"></td>
+      <td class="num">${a?money(-a):''}</td>
+      <td class="num" data-bav="${esc(c)}">${cell(v,c)}</td></tr>`;}).join('')).join('')}
+  </tbody></table>
+  <div class="bfoot">
+    ${R.uncatN?`<button id="bUncat" class="mini warnish" title="Show these rows in the register so you can categorize them">Uncategorized in ${ymLabel(v).split(' ')[0]}: ${money(R.uncat)} (${R.uncatN}) &rarr; show</button>`
+      :`<span class="dim">Nothing uncategorized in ${ymLabel(v).split(' ')[0]}.</span>`}
+    <span class="grow"></span>
+    <button id="bFill" class="mini" title="Assign each envelope what its recurring bills charge this month (only envelopes still at $0)">Fill from bills</button>
+    <button id="bCopy" class="mini" title="Repeat last month's amounts (only envelopes still at $0)">Copy last month</button>
+  </div>
+  <div class="bfoot">
+    <input id="bNewCat" type="text" placeholder="New category, e.g. Everyday Expenses: Pet Care" autocomplete="off">
+    <button id="bAddCat" class="mini">Add category</button>
+    <span id="bMsg" class="dim"></span>
+  </div>
+  </div>`;
+}
+const parseAmt=s=>{ const n=parseFloat(String(s).replace(/[$,\s]/g,'')); return isFinite(n)?Math.round(n*100)/100:0; };
+/* Typing an amount only patches the numbers in place - no redraw - so Tab
+   keeps moving straight down the Assigned column. */
+function refreshBudgetNumbers(){
+  const v=budgetView, R=budgetCalc(v);
+  const rt=$('#bRta'); if(rt){ rt.textContent=money(R.rta); rt.parentNode.classList.toggle('neg',R.rta<0); }
+  ROOT.querySelectorAll('[data-bav]').forEach(td=>{
+    const a=(R.avail[v]||{})[td.dataset.bav]||0;
+    td.innerHTML=`<span class="num ${a<0?'neg':''}">${money(a)}</span>`;
+  });
+  const left=R.expIncome-R.assignedView, p=$('#bPlan');
+  if(p) p.innerHTML=`Expected income ${money(R.expIncome)} &middot; assigned ${money(R.assignedView)}
+    &middot; <b class="${left<0?'neg':''}">${money(left)}</b> not planned yet this month`;
+}
+function setAssigned(m,c,amt){
+  const B=ensureBudget();
+  const mo=B.assigned[m]=B.assigned[m]||{};
+  if(amt) mo[c]=amt; else delete mo[c];
+  if(!Object.keys(mo).length) delete B.assigned[m];
+}
+function wireBudgetPanel(){
+  const B=ensureBudget(), v=budgetView;
+  const go=n=>{ budgetView=ymAdd(budgetView,n); if(budgetView<B.start) budgetView=B.start; deferPanel(); };
+  $('#bPrev').onclick=()=>go(-1); $('#bNext').onclick=()=>go(1);
+  ROOT.querySelectorAll('.basg').forEach(inp=>{
+    inp.onfocus=()=>inp.select();
+    inp.onchange=()=>{
+      beforeChange(); const amt=parseAmt(inp.value);
+      setAssigned(v,inp.dataset.bc,amt); inp.value=amt?amt.toFixed(2):'';
+      save(); refreshBudgetNumbers();
+    };
+    inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault();
+      const all=[...ROOT.querySelectorAll('.basg')], nx=all[all.indexOf(inp)+1]; inp.blur(); if(nx) nx.focus(); } };
+  });
+  const fillZeros=src=>{
+    beforeChange(); let n=0;
+    Object.entries(src).forEach(([c,amt])=>{
+      amt=Math.round(amt*100)/100;
+      if(amt>0&&!((B.assigned[v]||{})[c])){ setAssigned(v,c,amt); n++; }
+    });
+    save(); deferPanel();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ const m=$('#bMsg'); if(m) m.textContent=n?`Filled ${n} envelope${n===1?'':'s'}.`:'Nothing to fill - every envelope it would touch already has an amount.'; }));
+  };
+  $('#bFill').onclick=()=>fillZeros(billsFor(v,budgetCalc(v).xferSib));
+  $('#bCopy').onclick=()=>fillZeros(Object.assign({},B.assigned[ymAdd(v,-1)]||{}));
+  if($('#bUncat')) $('#bUncat').onclick=()=>{ catQ={cat:'Uncategorized',month:v}; S.filter=B.acct; save(); render(); };
+  const add=()=>{
+    const el=$('#bNewCat'), raw=el.value.trim().replace(/\s*:\s*/,': '), msg=$('#bMsg');
+    if(!raw){ msg.textContent='Type a name first.'; return; }
+    if(CATS.some(c=>c.toLowerCase()===raw.toLowerCase())){ msg.textContent='That category already exists.'; return; }
+    beforeChange(); B.cats.push(raw); mergeBudgetCats(); save(); deferPanel();
+  };
+  $('#bAddCat').onclick=add;
+  $('#bNewCat').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } };
 }
 
 function panel(){
@@ -1213,7 +1436,8 @@ function runSync(acct,data,el,btn){
       used.add(best.id); matched++;
     }else{
       S.txns.push({id:nid(),ord:seq++,date:btDate,acct:acct.id,
-        payee:bt.payee||'Unknown',cat:'Uncategorized',memo:bt.memo||'Synced from bank',
+        payee:bt.payee||'Unknown',memo:bt.memo||'Synced from bank',
+        cat:histCatFor(bt.payee||'',null,inflow>0?'in':'out')||'Uncategorized',
         outflow,inflow,cleared:true,edited:true,sfTxnId:bt.id});
       added++;
     }
@@ -1475,8 +1699,10 @@ function wireTable(){
       if(c) edit(c.closest('td'),id,'payee');
     });
   };
-  $('#rules').onclick=()=>{S.showRules=!S.showRules; if(S.showRules) S.showChart=false; drawerAnim=true;save();render();};
-  $('#chartBtn').onclick=()=>{S.showChart=!S.showChart; if(S.showChart) S.showRules=false; drawerAnim=true;save();render();};
+  $('#rules').onclick=()=>{S.showRules=!S.showRules; if(S.showRules){S.showChart=false;S.showBudget=false;} drawerAnim=true;save();render();};
+  $('#chartBtn').onclick=()=>{S.showChart=!S.showChart; if(S.showChart){S.showRules=false;S.showBudget=false;} drawerAnim=true;save();render();};
+  $('#budgetBtn').onclick=()=>{S.showBudget=!S.showBudget; if(S.showBudget){S.showRules=false;S.showChart=false;} drawerAnim=true;save();render();};
+  if($('#catQx')) $('#catQx').onclick=()=>{catQ=null;render();};
   $('#exp').onclick=exp; $('#imp').onclick=imp;
   $('#darkbtn').onclick=()=>{S.dark=!S.dark;save();render();};
   $('#reco').onclick=e=>{e.stopPropagation(); recoOpen?closeReco():openReco();};
@@ -1541,11 +1767,11 @@ function wireTable(){
 function renderDrawer(){
   const dr=$('#drawer'); if(!dr) return;
   const scrollTop=dr.scrollTop;
-  dr.innerHTML=S.showChart?chartPanel():panel();
+  dr.innerHTML=drawerHTML();
   dr.scrollTop=scrollTop;
   lastProgDrawerScroll=dr.scrollTop;
-  if(S.showRules||S.showChart)
-    dr.style.maxHeight=Math.min(dr.scrollHeight,Math.round(window.innerHeight*0.42))+'px';
+  if(S.showRules||S.showChart||S.showBudget)
+    dr.style.maxHeight=Math.min(dr.scrollHeight,Math.round(window.innerHeight*drawerFrac()))+'px';
   wireDrawer();
 }
 /* A rule's onchange fires while the field is still mid-blur; replacing the
@@ -1560,8 +1786,11 @@ function deferPanel(){
   requestAnimationFrame(()=>{panelPending=false;renderDrawer();});
 }
 function wireDrawer(){
-  if(S.showChart) wireChartPanel(); else wirePanel();
+  if(S.showBudget) wireBudgetPanel(); else if(S.showChart) wireChartPanel(); else wirePanel();
 }
+/* The budget grid is tall, so its drawer gets more of the window. */
+const drawerHTML=()=>S.showBudget?budgetPanel():S.showChart?chartPanel():panel();
+const drawerFrac=()=>S.showBudget?0.7:0.42;
 function wirePanel(){
   ROOT.querySelectorAll('[data-rid]').forEach(box=>{
     const r=S.rules.find(x=>x.id===box.dataset.rid);
@@ -1664,6 +1893,7 @@ ROOT.addEventListener('scroll',e=>{
   await store.test();
   const v=await store.get();
   if(v&&v.accounts){S=Object.assign(fresh(),v);seq=S.txns.reduce((m,x)=>Math.max(m,x.ord||0),0)+1;}
+  mergeBudgetCats();
   /* horizon isn't rolling on its own - it's a saved date, frozen at whenever
      it was last set. Re-sync it forward to "today+1yr" on every load so it
      never falls behind; a horizon manually pushed further out than that is
